@@ -38,7 +38,7 @@ def build_clusters(features, filenames, img_folder):
         shutil.rmtree(CLUSTER_DIR)
     os.makedirs(CLUSTER_DIR)
 
-    print("[INFO] Bắt đầu lưu ảnh vào các cụm...")
+    print("Bắt đầu lưu ảnh vào các cụm...")
     for bucket_id, img_list in hashtable.items():
         cluster_path = os.path.join(CLUSTER_DIR, f"bucket_{bucket_id}")
         os.makedirs(cluster_path, exist_ok=True)
@@ -49,7 +49,7 @@ def build_clusters(features, filenames, img_folder):
             if os.path.exists(src):
                 shutil.copy(src, os.path.join(cluster_path, fname))
 
-    print(f"[INFO] Đã tạo {len(hashtable)} bucket trong thư mục '{CLUSTER_DIR}/'")
+    print(f"Đã tạo {len(hashtable)} bucket trong thư mục '{CLUSTER_DIR}/'")
     return hashtable
 
 def evaluate_sharpness(image_path):
@@ -89,7 +89,6 @@ def select_best_image_in_group(image_path1, image_path2, sharp_thresh=100.0, col
     sharp2 = evaluate_sharpness(image_path2)
     color2 = evaluate_colorfulness(image_path2)
 
-    # Xác định ứng viên nào đạt tiêu chuẩn
     good1 = (sharp1 > sharp_thresh and color1 > color_thresh)
     good2 = (sharp2 > sharp_thresh and color2 > color_thresh)
 
@@ -108,7 +107,7 @@ def build_clusters_best(features, filenames, img_folder):
     hashtable = defaultdict(list)
     ht = HashTable.HashTable(NUM_BUCKETS, 8, features.shape[1])
 
-    print("[INFO] Bắt đầu thêm vector vào HashTable...",flush=True)
+    print("Bắt đầu thêm vector vào HashTable...",flush=True)
     for i, vec in enumerate(features): 
         hash_key = ht.hashFunction(vec.tolist()) 
         print(hash_key)
@@ -146,14 +145,14 @@ def build_clusters_best(features, filenames, img_folder):
         shutil.rmtree(CLUSTER_DIR)
     os.makedirs(CLUSTER_DIR, exist_ok=True)
 
-    print("[INFO] Bắt đầu lưu ảnh tốt nhất vào từng bucket...")
+    print("Bắt đầu lưu ảnh tốt nhất vào từng bucket...")
     for bucket_id, info in hashtable.items():
         cluster_path = os.path.join(CLUSTER_DIR, f"bucket_{bucket_id}")
         os.makedirs(cluster_path, exist_ok=True)
         shutil.copy(info['path'], cluster_path)
         print(info['path'])
 
-    print(f"[INFO] Đã tạo {len(hashtable)} bucket, mỗi bucket chứa 1 ảnh tốt nhất.")
+    print(f" Đã tạo {len(hashtable)} bucket, mỗi bucket chứa 1 ảnh tốt nhất.")
     return hashtable
         
 if __name__ == "__main__":
