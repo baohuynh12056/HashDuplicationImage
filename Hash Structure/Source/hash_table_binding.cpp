@@ -11,5 +11,6 @@ PYBIND11_MODULE(hash_table_py, m)
              py::arg("bucket"), py::arg("numPlanes"), py::arg("dimension"))
         .def("addItem", &HashTable::addItem, py::arg("featureVector"))
         .def("search", &HashTable::search, py::arg("featureVector"))
+        .def("hashFunction", &HashTable::hashFunction, py::arg("featureVector"))
         .def("print", &HashTable::print);
 }

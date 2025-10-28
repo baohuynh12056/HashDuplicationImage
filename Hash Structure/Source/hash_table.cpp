@@ -9,7 +9,7 @@ void HashTable::generateRandomHyperplanes() {
         randomHyperplanes.resize(numPlanes, vector<double>(dimension));
         random_device rd;
         mt19937 gen(rd());
-        uniform_real_distribution<double> dist(-1000, 1000);
+        uniform_real_distribution<double> dist(-1, 1);
 
         for (size_t i = 0; i < numPlanes; ++i) {
             for (size_t j = 0; j < dimension; ++j) {
@@ -29,7 +29,7 @@ size_t HashTable::hashFunction(const vector<double>& featureVector) {
                 hashValue |= (1 << i);
             }
         }
-        return hashValue % bucket;
+        return hashValue;
     }
 
 void HashTable::addItem(const vector<double>& featureVector) {

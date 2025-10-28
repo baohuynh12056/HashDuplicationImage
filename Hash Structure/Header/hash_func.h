@@ -4,7 +4,7 @@
 #include <vector>
 #include <random>
 #include <functional>
-
+#include <bitset>
 class hashFunc {
     protected:
         std::vector<double> data;

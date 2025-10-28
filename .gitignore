@@ -43,6 +43,6 @@ logs/
 
 clusters/*
 !clusters/.gitkeep
-
+*.npy
 .pyd
 hash_table_py.egg-info

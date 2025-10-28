@@ -1,14 +1,22 @@
 #ifndef SIM_HASH_H
 #define SIM_HASH_H
 #include "hash_func.h"
-class simHash : public hashFunc {
+#include <iostream>
+#include <vector>
+#include <list>
+#include <cstring>
+#include <random>
+#include <algorithm>
+class simHash {
     private:
         std::vector<int> hashValue;
+        size_t bits;
     public:
-        simHash (std::vector<double>& data, int bit, int seed);
+        simHash (size_t bit);
         ~simHash ();
-        int distance (std::vector<double>& other) override;
-        bool hash () override;
+        std::vector<int> simpleHash (double x);
+        int distance (std::vector<double>& other) ;
+        size_t hashFunction(const std::vector<double> &featureVector);
         std::string extractBinary(long long value);
         std::vector<double> computeWeights (std::vector<double>&);
 };
