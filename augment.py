@@ -84,7 +84,7 @@ def create_augmented_dataset(url, label, main_dir="dataset"):
 
         # (2) Rotate Left
         rotate_left_img = original_img.rotate(
-            5, expand=False, fillcolor="black"
+            15, expand=False, fillcolor="black"
         )
         rotate_left_img.save(
             os.path.join(output_dir, f"{base_filename}_02_rotate_left.jpg"),
@@ -93,7 +93,7 @@ def create_augmented_dataset(url, label, main_dir="dataset"):
 
         # (3) Rotate Right
         rotate_right_img = original_img.rotate(
-            -5, expand=False, fillcolor="black"
+            -15, expand=False, fillcolor="black"
         )
         rotate_right_img.save(
             os.path.join(output_dir, f"{base_filename}_03_rotate_right.jpg"),
@@ -103,7 +103,7 @@ def create_augmented_dataset(url, label, main_dir="dataset"):
         # (4) Crop / Zoom
         width, height = original_img.size
         zoomed_img = original_img.crop(
-            (width * 0.15, height * 0.15, width * 0.85, height * 0.85)
+            (width * 0.3, height * 0.3, width * 0.7, height * 0.7)
         )
         # Resize
         zoomed_img = zoomed_img.resize((width, height))
@@ -119,8 +119,8 @@ def create_augmented_dataset(url, label, main_dir="dataset"):
             "JPEG",
         )
 
-        """# (6) Blurred
-        blurred_img = original_img.filter(ImageFilter.GaussianBlur(radius=5))
+        # (6) Blurred
+        blurred_img = original_img.filter(ImageFilter.GaussianBlur(radius=10))
         blurred_img.save(
             os.path.join(output_dir, f"{base_filename}_06_blurred.jpg"), "JPEG"
         )
@@ -155,7 +155,6 @@ def create_augmented_dataset(url, label, main_dir="dataset"):
         )
 
         print(f"🎉 Success! Saved 10 images to '{output_dir}'.")
-        """
 
     except requests.exceptions.RequestException as e:
         print(f"❌ Error downloading image: {e}")
