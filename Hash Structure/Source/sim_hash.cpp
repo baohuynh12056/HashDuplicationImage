@@ -1,63 +1,88 @@
 #include "sim_hash.h"
+#include <cmath>
+#include <bitset>
+#include <cstring>
+#include <stdexcept>
+#include <numeric>
+#include <iostream>
 
-simHash::simHash (size_t bit) {
-    bits = bit;
+// ================== Constructor / Destructor ==================
+SimHash::SimHash(size_t bit) : bits(bit) {}
+
+SimHash::~SimHash() {}
+
+// ================== Helper functions ==================
+std::string SimHash::encode_double(double x, int idx) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%d:%.9f", idx, round(x));
+    return std::string(buf);
 }
 
-simHash::~simHash () {}
 
-int simHash::distance (std::vector<double>& other) {
-    if (hashValue.size() != other.size()) {
-        throw std::invalid_argument("Vectors must be the same length");
-    }
+std::vector<int> SimHash::hashify_double_by_murmur128(double x, int idx, int bits_count) {
+    std::string token = encode_double(x, idx);
 
-    int distance = 0;
-    const int len = other.size();
-    for (int i = 0; i < len; ++i) {
-        if (other[i] != hashValue[i]) {
-            ++distance;
+    uint64_t hash_output[2];
+    MurmurHash3_x64_128(token.c_str(), token.size(), 0, hash_output);
+
+    std::vector<int> bits(bits_count);
+
+    if (bits_count <= 64) {
+        for (int i = 0; i < bits_count; ++i) {
+            uint64_t bit = (hash_output[0] >> i) & 1;
+            bits[i] = bit ? 1 : -1;
         }
+    } else if (bits_count <= 128) {
+        for (int i = 0; i < 64; ++i) {
+            bits[i] = (hash_output[0] >> i) & 1 ? 1 : -1;
+            if (64 + i < bits_count)
+                bits[64 + i] = (hash_output[1] >> i) & 1 ? 1 : -1;
+        }
+    } else {
+        throw std::invalid_argument("Bits <= 128");
     }
-    return distance;
-}
-std::vector<int> simHash::simpleHash(double x) {    
-    uint64_t raw;
-    std::memcpy(&raw, &x, sizeof(double));
-    uint32_t folded = static_cast<uint32_t>((raw >> 32) ^ raw);
-    std::bitset<32> b(folded);
-    std::vector<int> bits(simHash::bits, 0);
-    for (size_t i = 0; i < simHash::bits; ++i)
-        bits[i] = b[31 - (i % 32)];
 
     return bits;
 }
-size_t simHash::hashFunction(const std::vector<double>& featureVector) {
-    std::vector<double> W(bits, 0);
-    for (size_t i = 0; i < 2048; ++i) {
-        double weight = std::abs(featureVector[i]); 
-        std::vector<int> phi = simpleHash(featureVector[i]);
-        for (size_t j = 0; j < bits; ++j) {
-            W[j] += (phi[j] == 1 ? weight : -weight);
+
+void SimHash::IDF(const std::vector<std::vector<double>>& allFeatures) {
+    const int N = allFeatures.size();
+    const int dim = allFeatures[0].size();
+    idfWeights.assign(dim, 0.0);
+    std::vector<int> docFreq(dim, 0);
+
+    for (const auto& img : allFeatures) {
+        for (int j = 0; j < dim; ++j) {
+            if (img[j] > 1e-9)  
+                docFreq[j]++;
         }
     }
 
-    std::vector<int> B(bits);
-    for (size_t j = 0; j < bits; ++j) {
-        B[j] = W[j] >= 0 ? 1 : 0;
+    for (int j = 0; j < dim; ++j) {
+        idfWeights[j] = std::log(static_cast<double>(N) / (1.0 + docFreq[j]));
     }
-    uint64_t hash_value_as_int = 0;
-    for (int bit : B) {
-        hash_value_as_int = (hash_value_as_int << 1) | bit;
-    }    
-    size_t hash_as_size_t = hash_value_as_int;
-    return hash_as_size_t;
 }
 
+size_t SimHash::hashFunction(const std::vector<double>& featureVector) {
+    std::vector<double> V(bits, 0.0);
+    const int dim = featureVector.size();
 
-std::vector<double> simHash::computeWeights(std::vector<double>& u) {
-    std::vector<double> weights(u.size());
-    for (size_t i = 0; i < u.size(); ++i) {
-        weights[i] = std::abs(u[i]); 
+    for (int i = 0; i < dim; ++i) {
+        double tf = featureVector[i];
+        double weight = tf * idfWeights[i];
+        if (std::abs(weight) < 1e-9) continue;
+
+        std::vector<int> phi = hashify_double_by_murmur128(featureVector[i], i, bits);
+        for (size_t j = 0; j < bits; ++j) {
+            V[j] += phi[j] * weight;
+        }
     }
-    return weights;
+
+    uint64_t hashValue = 0;
+    for (size_t j = 0; j < bits; ++j) {
+        int bit = (V[j] >= 0.0) ? 1 : 0;
+        hashValue = (hashValue << 1) | bit;
+    }
+
+    return static_cast<size_t>(hashValue);
 }

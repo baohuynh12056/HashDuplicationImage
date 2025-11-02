@@ -1,34 +1,25 @@
-#ifndef BLOOMFILTER_H
-#define BLOOMFILTER_H
+#ifndef BLOOM_FILTER_H
+#define BLOOM_FILTER_H
 
-#include <iostream>
 #include <vector>
-#include <string>
+#include <random>
 #include <cmath>
-#include <functional>
-#include <opencv2/opencv.hpp>
-using namespace std;
+#include <cstddef>
 
 class BloomFilter {
 private:
-    size_t n;        // số ảnh dự kiến (n)
-    double p;    // tỉ lệ false positive mong muốn (p)
-    int k;               // số hàm băm (k)
-    size_t m;              // số bit của mảng (m)
-    vector<bool> bitArray;  // mảng bit lưu trữ
+    size_t numPlanes;                       // Tổng số hyperplanes
+    size_t dimension;                       // Số chiều của feature vector
+    size_t k;                               // Số hash values (Bloom filter size)
+    std::vector<std::vector<double>> randomHyperplanes;
+
+    void generateRandomHyperplanes();       // Sinh ngẫu nhiên hyperplanes
 
 public:
-    BloomFilter(size_t n, double fPr);
+    BloomFilter(size_t numPlanes, size_t dimension, size_t k);
 
-    void insert(const string &item);
-    bool contains(const string &item) const;
-
+    // Sinh ra k hashValue, mỗi cái là 1 nhóm bit
+    std::vector<size_t> hashFunction(const std::vector<double>& featureVector);
 };
 
-// -------------------- pHash (Perceptual Hash) --------------------
-string pHash(const string &imagePath);
-
-// -------------------- Hamming Distance --------------------
-int hammingDistance(const string &hash1, const string &hash2);
-
-#endif // BLOOMFILTER_H
+#endif // BLOOM_FILTER_H

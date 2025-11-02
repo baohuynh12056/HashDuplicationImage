@@ -1,70 +1,50 @@
 #include "../Header/bloom_filter.h"
 
-
-// -------------------- Bloom Filter --------------------
-BloomFilter::BloomFilter(size_t num, double fRate) 
-    : n(num), p(fRate) 
-{
-    // cal số bit m và số hàm băm k
-    m = static_cast<size_t>(-(double)n * log(p) / (log(2) * log(2)));
-    k = max(1, (int)round(((double)m / n) * log(2)));
-
-    bitArray.assign(m, false);
+BloomFilter::BloomFilter(size_t numPlanes, size_t dimension, size_t k)
+    : numPlanes(numPlanes), dimension(dimension), k(k) {
+    generateRandomHyperplanes();
 }
 
-void BloomFilter::insert(const string &item) {
-    for (int i = 0; i < k; i++) {
-        size_t hashValue = hash<string>{}(item + to_string(i)) % m; //tăng tính phân tán = cách cộng 1 chuỗi ngẫu nhiên (i)
-        bitArray[hashValue] = true;
-    }
-}
+void BloomFilter::generateRandomHyperplanes() {
+    randomHyperplanes.resize(numPlanes, std::vector<double>(dimension));
 
-bool BloomFilter::contains(const string &item) const {
-    for (int i = 0; i < k; i++) {
-        size_t hashValue = hash<string>{}(item + to_string(i)) % m;
-        if (!bitArray[hashValue]) return false;
-    }
-    return true;
-}
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<double> dist(0.0, 1.0);
 
-// -------------------- pHash --------------------
-string pHash(const string &imagePath) {
-    cv::Mat img = cv::imread(imagePath, cv::IMREAD_GRAYSCALE);
-    if (img.empty()) {
-        cerr << "Error: Cannot read image " << imagePath << endl;
-        return "";
-    }
-
-    cv::Mat resized;
-    cv::resize(img, resized, cv::Size(32, 32));
-
-    cv::Mat floatMat;
-    resized.convertTo(floatMat, CV_32F);
-
-    cv::Mat dctMat;
-    cv::dct(floatMat, dctMat);
-
-    cv::Mat dctLow = dctMat(cv::Rect(0, 0, 8, 8)); // get top-left 8x8 matrix;
-
-    double meanVal = cv::mean(dctLow)[0]; //cal the mean val;=
-
-    string hashStr;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            hashStr.push_back(dctLow.at<float>(i, j) > meanVal ? '1' : '0');
+    for (size_t i = 0; i < numPlanes; ++i) {
+        double norm = 0.0;
+        for (size_t j = 0; j < dimension; ++j) {
+            randomHyperplanes[i][j] = dist(gen);
+            norm += randomHyperplanes[i][j] * randomHyperplanes[i][j];
+        }
+        norm = std::sqrt(norm);
+        for (size_t j = 0; j < dimension; ++j) {
+            randomHyperplanes[i][j] /= norm;
         }
     }
-
-    return hashStr;
 }
 
-// -------------------- Hamming Distance --------------------
-int hammingDistance(const string &hash1, const string &hash2) {
-    if (hash1.size() != hash2.size()) return -1;
+std::vector<size_t> BloomFilter::hashFunction(const std::vector<double>& featureVector) {
+    std::vector<size_t> hashValues(k, 0);
+    size_t bitsPerHash = numPlanes / k;  // chia đều số mặt phẳng cho mỗi hash
 
-    int dist = 0;
-    for (int i = 0; i < hash1.size(); i++) {
-        if (hash1[i] != hash2[i]) dist++;
+    for (size_t group = 0; group < k; ++group) {
+        size_t hashValue = 0;
+        size_t start = group * bitsPerHash;
+        size_t end = (group + 1) * bitsPerHash;
+
+        for (size_t i = start; i < end && i < numPlanes; ++i) {
+            double dotProduct = 0.0;
+            for (size_t j = 0; j < dimension; ++j) {
+                dotProduct += featureVector[j] * randomHyperplanes[i][j];
+            }
+            if (dotProduct > 0) {
+                hashValue |= (1ULL << (i - start));  // set bit trong phạm vi nhóm
+            }
+        }
+        hashValues[group] = hashValue;
     }
-    return dist;
+
+    return hashValues;
 }
