@@ -6,10 +6,87 @@ import torchvision.transforms as transforms
 import random
 import cv2
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 from PIL import Image,ImageEnhance, ImageFilter
 import numpy as np
 from tqdm import tqdm
+import time
+import kornia.augmentation as K
+import kornia.filters as KF
+class AddGaussianNoiseGPU:
+    """Thêm nhiễu Gaussian trên GPU"""
+    def __init__(self, std=0.05, prob=1.0):
+        self.std = std
+        self.prob = prob
 
+    def __call__(self, tensor):
+        if torch.rand(1) < self.prob:
+            noise = torch.randn_like(tensor) * self.std
+            tensor = tensor + noise
+            tensor = torch.clamp(tensor, 0., 1.)
+        return tensor
+
+
+# --- Làm mờ nhẹ (denoise giả lập) ---
+class GaussianBlurGPU:
+    """Làm mờ nhẹ bằng Gaussian kernel (tương đương ImageFilter.GaussianBlur)"""
+    def __init__(self, kernel_size=3, sigma=1.0):
+        self.kernel_size = kernel_size
+        self.sigma = sigma
+
+    def __call__(self, tensor):
+        # Tạo kernel Gaussian 2D
+        device = tensor.device
+        ax = torch.arange(-self.kernel_size // 2 + 1., self.kernel_size // 2 + 1., device=device)
+        xx, yy = torch.meshgrid(ax, ax, indexing='ij')
+        kernel = torch.exp(-(xx**2 + yy**2) / (2. * self.sigma**2))
+        kernel = kernel / kernel.sum()
+        kernel = kernel.view(1, 1, self.kernel_size, self.kernel_size)
+        kernel = kernel.to(tensor.dtype)
+
+        # Áp dụng trên từng kênh RGB
+        channels = []
+        for c in range(tensor.shape[0]):
+            ch = tensor[c:c+1].unsqueeze(0)
+            ch = F.conv2d(ch, kernel, padding=self.kernel_size//2)
+            channels.append(ch)
+        return torch.cat(channels, dim=1).squeeze(0)
+
+
+# --- Làm mịn ảnh (smooth edges) ---
+class SmoothImageGPU:
+    """Làm mịn bằng trung bình kernel (tương tự ImageFilter.SMOOTH_MORE)"""
+    def __init__(self, kernel_size=3):
+        self.kernel_size = kernel_size
+
+    def __call__(self, tensor):
+        device = tensor.device
+        kernel = torch.ones((1, 1, self.kernel_size, self.kernel_size), device=device)
+        kernel = kernel / kernel.sum()
+        kernel = kernel.to(tensor.dtype)
+
+        # Áp dụng trên từng kênh RGB
+        channels = []
+        for c in range(tensor.shape[0]):
+            ch = tensor[c:c+1].unsqueeze(0)
+            ch = F.conv2d(ch, kernel, padding=self.kernel_size//2)
+            channels.append(ch)
+        return torch.cat(channels, dim=1).squeeze(0)
+
+
+# --- Denoise thích nghi (Adaptive Gaussian Blur) ---
+class AdaptiveDenoiseGPU:
+    """Giảm nhiễu khi phương sai ảnh vượt ngưỡng (tương tự adaptive_denoise)"""
+    def __init__(self, var_threshold=0.03, sigma=1.0):
+        self.var_threshold = var_threshold
+        self.sigma = sigma
+
+    def __call__(self, tensor):
+        var = tensor.var()
+        if var > self.var_threshold:
+            blur = GaussianBlurGPU(kernel_size=3, sigma=self.sigma)
+            tensor = blur(tensor)
+        return tensor
 def add_random_noise(img_pil, noise_prob=0.4, noise_std=20):
     """Thêm nhiễu Gaussian"""
     if random.random() < noise_prob:
@@ -182,116 +259,253 @@ def mean_extract_image_features(img_dir, feature_file, name_file):
     return all_features, all_names
 
 
-# def mean_extract_image_features_batch(img_dir, feature_file, name_file, batch_size=32):
-#     """
-#     Phiên bản tối ưu: Trích đặc trưng ảnh với augment, gom vào batch để chạy ResNet nhanh hơn.
-#     """
-#     print(f"\nĐang trích xuất đặc trưng theo batch từ thư mục: {img_dir}")
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#     print(device)
+def mean_extract_image_features_batch(img_dir, feature_file, name_file, batch_size=24):
+    """
+    Phiên bản tối ưu: Trích đặc trưng ảnh với augment, gom vào batch để chạy ResNet nhanh hơn.
+    """
+    print(f"\nĐang trích xuất đặc trưng theo batch từ thư mục: {img_dir}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
 
-#     # --- Load model ---
-#     resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-#     resnet = nn.Sequential(*list(resnet.children())[:-1])  # Bỏ lớp FC
-#     resnet.eval().to(device)
+    # --- Load model ---
+    resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+    resnet = nn.Sequential(*list(resnet.children())[:-1])  # Bỏ lớp FC
+    resnet.eval().to(device)
 
-#     # --- Chuẩn hóa ảnh sau augment ---
-#     normalize_tf = transforms.Compose([
-#         transforms.Resize((224, 224)),
-#         transforms.ToTensor(),
-#         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-#                              std=[0.229, 0.224, 0.225])
-#     ])
+    # --- Chuẩn hóa ảnh sau augment ---
+    normalize_tf = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(15),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4),
+        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
 
-#     # --- Danh sách augment ---
-#     transforms_list = [
-#         lambda x: x,
-#         lambda x: x.rotate(90, expand=True),
-#         lambda x: x.rotate(180, expand=True),
-#         lambda x: x.rotate(270, expand=True),
-#         lambda x: x.transpose(Image.FLIP_LEFT_RIGHT),
-#         lambda x: x.transpose(Image.FLIP_TOP_BOTTOM),
-#         lambda x: x.rotate(15, expand=False, fillcolor="black"),
-#         lambda x: x.rotate(-15, expand=False, fillcolor="black"),
-#         lambda x: x.rotate(45, expand=True, fillcolor="black"),
-#         lambda x: x.rotate(-45, expand=True, fillcolor="black"),
-#         lambda x: x.crop((224*0.2, 224*0.2, 224*0.8, 224*0.8)).resize((224, 224)),
-#         lambda x: x.crop((224*0.1, 224*0.1, 224*0.9, 224*0.9)).resize((224, 224)),
-#         lambda x: ImageEnhance.Brightness(x).enhance(0.5),
-#         lambda x: ImageEnhance.Brightness(x).enhance(1.5),
-#         lambda x: ImageEnhance.Contrast(x).enhance(0.7),
-#         lambda x: ImageEnhance.Contrast(x).enhance(1.5),
-#         lambda x: ImageEnhance.Sharpness(x).enhance(0.3),
-#         lambda x: ImageEnhance.Sharpness(x).enhance(2.0),
-#         lambda x: x.filter(ImageFilter.GaussianBlur(radius=2)),
-#         lambda x: x.filter(ImageFilter.MedianFilter(size=3)),
-#         lambda x: x.filter(ImageFilter.BoxBlur(radius=1)),
-#         lambda x: denoise_image(x),
-#         lambda x: smooth_image(x),
-#         lambda x: add_gaussian_noise(x, std=5),
-#         lambda x: add_gaussian_noise(x, std=10),
-#     ]
+        # --- Các augment GPU custom ---
+        AddGaussianNoiseGPU(std=0.05, prob=0.5),
+        GaussianBlurGPU(kernel_size=3, sigma=1.0),
+        SmoothImageGPU(kernel_size=3),
+        AdaptiveDenoiseGPU(var_threshold=0.03, sigma=1.0),
 
-#     # --- Chuẩn bị danh sách ảnh ---
-#     img_files = [f for f in os.listdir(img_dir)
-#                  if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-#     if not img_files:
-#         print(" Không tìm thấy ảnh hợp lệ trong thư mục.")
-#         return np.array([]), np.array([])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225])
+    ])
 
-#     all_features = []
-#     all_names = []
+    # --- Danh sách augment ---
+    transforms_list = [
+        lambda x: x,
+        lambda x: x.rotate(90, expand=True),
+        lambda x: x.rotate(180, expand=True),
+        lambda x: x.rotate(270, expand=True),
+        lambda x: x.transpose(Image.FLIP_LEFT_RIGHT),
+        lambda x: x.transpose(Image.FLIP_TOP_BOTTOM),
+        lambda x: x.rotate(15, expand=False, fillcolor="black"),
+        lambda x: x.rotate(-15, expand=False, fillcolor="black"),
+        lambda x: x.rotate(45, expand=True, fillcolor="black"),
+        lambda x: x.rotate(-45, expand=True, fillcolor="black"),
+        lambda x: x.crop((224*0.2, 224*0.2, 224*0.8, 224*0.8)).resize((224, 224)),
+        lambda x: x.crop((224*0.1, 224*0.1, 224*0.9, 224*0.9)).resize((224, 224)),
+        lambda x: ImageEnhance.Brightness(x).enhance(0.5),
+        lambda x: ImageEnhance.Brightness(x).enhance(1.5),
+        lambda x: ImageEnhance.Contrast(x).enhance(0.7),
+        lambda x: ImageEnhance.Contrast(x).enhance(1.5),
+        lambda x: ImageEnhance.Sharpness(x).enhance(0.3),
+        lambda x: ImageEnhance.Sharpness(x).enhance(2.0),
+        lambda x: x.filter(ImageFilter.GaussianBlur(radius=2)),
+        lambda x: x.filter(ImageFilter.MedianFilter(size=3)),
+        lambda x: x.filter(ImageFilter.BoxBlur(radius=1)),
+        lambda x: denoise_image(x),
+        lambda x: smooth_image(x),
+        lambda x: add_gaussian_noise(x, std=5),
+        lambda x: add_gaussian_noise(x, std=10),
+    ]
 
-#     print(f" Tổng số ảnh: {len(img_files)}")
-#     print(f"  Batch size: {batch_size}, Tổng augment: {len(transforms_list)}")
+    # --- Chuẩn bị danh sách ảnh ---
+    img_files = [f for f in os.listdir(img_dir)
+                 if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    if not img_files:
+        print(" Không tìm thấy ảnh hợp lệ trong thư mục.")
+        return np.array([]), np.array([])
 
-#     # --- Vòng lặp chính ---
-#     with torch.no_grad():
-#         for i, fname in enumerate(tqdm(img_files, desc="Extracting features"), 1):
-#             try:
-#                 img_path = os.path.join(img_dir, fname)
-#                 img = Image.open(img_path).convert("L").convert("RGB")
-#             except Exception:
-#                 print(f" Lỗi khi đọc {fname}, bỏ qua.")
-#                 continue
+    all_features = []
+    all_names = []
 
-#             # Tạo batch augment cho 1 ảnh
-#             batch_tensors = []
-#             for fn in transforms_list:
-#                 aug_img = fn(img)
-#                 tensor_img = normalize_tf(aug_img)
-#                 batch_tensors.append(tensor_img)
+    print(f" Tổng số ảnh: {len(img_files)}")
+    print(f"  Batch size: {batch_size}, Tổng augment: {len(transforms_list)}")
 
-#             # Gom thành tensor batch
-#             batch_tensor = torch.stack(batch_tensors).to(device)
+    # --- Vòng lặp chính ---
+    with torch.no_grad():
+        for i, fname in enumerate(tqdm(img_files, desc="Extracting features"), 1):
+            try:
+                img_path = os.path.join(img_dir, fname)
+                img = Image.open(img_path).convert("L").convert("RGB")
+            except Exception:
+                print(f" Lỗi khi đọc {fname}, bỏ qua.")
+                continue
 
-#             # Chia nhỏ batch nếu GPU 8GB không đủ
-#             feats_all = []
-#             for j in range(0, len(batch_tensor), batch_size):
-#                 sub_batch = batch_tensor[j:j + batch_size]
-#                 feats = resnet(sub_batch)
-#                 feats = feats.view(feats.size(0), -1)  # (b, 2048)
-#                 feats_all.append(feats.cpu().numpy())
+            # Tạo batch augment cho 1 ảnh
+            batch_tensors = []
+            t0 = time.time()
+            for fn in transforms_list:
+                aug_img = fn(img)
+                tensor_img = normalize_tf(aug_img)
+                batch_tensors.append(tensor_img)
+            print("Aug time:", time.time()-t0)
+            # Gom thành tensor batch
+            start = time.time()
+            batch_tensor = torch.stack(batch_tensors).to(device)
+            print("→ CPU to GPU:", time.time()-start)
 
-#             feature_array = np.vstack(feats_all)
-#             final_feature = np.mean(feature_array, axis=0)
+            # Chia nhỏ batch nếu GPU 8GB không đủ
+            feats_all = []
+            for j in range(0, len(batch_tensor), batch_size):
+                sub_batch = batch_tensor[j:j + batch_size]
+                feats = resnet(sub_batch)
+                feats = feats.view(feats.size(0), -1)  # (b, 2048)
+                feats_all.append(feats.cpu().numpy())
 
-#             all_features.append(final_feature)
-#             all_names.append(fname)
+            feature_array = np.vstack(feats_all)
+            final_feature = np.mean(feature_array, axis=0)
 
-#             if i % 10 == 0 or i == len(img_files):
-#                 print(f" Đã xử lý {i}/{len(img_files)} ảnh...")
+            all_features.append(final_feature)
+            all_names.append(fname)
 
-#     # --- Lưu kết quả ---
-#     all_features = np.array(all_features)
-#     all_names = np.array(all_names)
+            if i % 10 == 0 or i == len(img_files):
+                print(f" Đã xử lý {i}/{len(img_files)} ảnh...")
 
-#     try:
-#         np.save(feature_file, all_features)
-#         np.save(name_file, all_names)
-#         print(f"\n Đã lưu đặc trưng vào:\n - {feature_file}\n - {name_file}")
-#     except Exception as e:
-#         print(f"Lỗi khi lưu file: {e}")
+    # --- Lưu kết quả ---
+    all_features = np.array(all_features)
+    all_names = np.array(all_names)
 
-#     print("Hoàn tất trích xuất đặc trưng (batch).")
-#     return all_features, all_names
+    try:
+        np.save(feature_file, all_features)
+        np.save(name_file, all_names)
+        print(f"\n Đã lưu đặc trưng vào:\n - {feature_file}\n - {name_file}")
+    except Exception as e:
+        print(f"Lỗi khi lưu file: {e}")
+
+    print("Hoàn tất trích xuất đặc trưng (batch).")
+    return all_features, all_names
+
+def mean_extract_image_features_batch_1(img_dir, feature_file, name_file, batch_size=24):
+    """
+    Trích xuất đặc trưng ảnh bằng ResNet50 + augment Kornia GPU + gom batch (24 augment mỗi ảnh).
+    """
+    if os.path.exists(feature_file) and os.path.exists(name_file):
+        features = np.load(feature_file)
+        names = np.load(name_file)
+        return features, names    
+    print(f"\n Đang trích xuất đặc trưng từ: {img_dir}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Thiết bị:", device)
+
+    # --- ResNet50 (bỏ FC) ---
+    resnet = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+    resnet = nn.Sequential(*list(resnet.children())[:-1])
+    resnet.eval().to(device)
+
+    # --- Chuẩn hóa theo ImageNet ---
+    normalize = K.Normalize(mean=torch.tensor([0.485, 0.456, 0.406]).to(device),
+                            std=torch.tensor([0.229, 0.224, 0.225]).to(device))
+
+    # --- Các augment GPU tương tự transforms_list ---
+    kornia_augments = [
+        # --- Rotation cố định ---
+        K.RandomRotation(degrees=(0.0,0.0), p=1.0),     # gốc
+        K.RandomRotation(degrees=(90.0,90.0), p=1.0),
+        K.RandomRotation(degrees=(180.0,180.0), p=1.0),
+        K.RandomRotation(degrees=(270.0,270.0), p=1.0),
+        K.RandomRotation(degrees=(15.0,15.0), p=1.0),
+        K.RandomRotation(degrees=(-15.0,-15.0), p=1.0),
+        K.RandomRotation(degrees=(45.0,45.0), p=1.0),
+        K.RandomRotation(degrees=(-45.0,-45.0), p=1.0),
+
+        # --- Flip cố định ---
+        K.RandomHorizontalFlip(p=1.0),
+        K.RandomVerticalFlip(p=1.0),
+
+        # --- Crop / Resize cố định ---
+        K.RandomResizedCrop(size=(224,224), scale=(0.8,0.8), ratio=(1.0,1.0), p=1.0),
+        K.RandomResizedCrop(size=(224,224), scale=(0.9,0.9), ratio=(1.0,1.0), p=1.0),
+
+        # --- Brightness / Contrast cố định ---
+        K.ColorJitter(brightness=0.5, contrast=0.0, p=1.0),
+        K.ColorJitter(brightness=1.5, contrast=0.0, p=1.0),
+        K.ColorJitter(brightness=0.0, contrast=0.7, p=1.0),
+        K.ColorJitter(brightness=0.0, contrast=1.5, p=1.0),
+
+        # --- Sharpness cố định ---
+        K.RandomSharpness(sharpness=0.3, p=1.0),
+        K.RandomSharpness(sharpness=2.0, p=1.0),
+
+        # --- Blur / Denoise ---
+        lambda x: KF.gaussian_blur2d(x, (3,3), (2.0,2.0)),
+        lambda x: KF.median_blur(x, (3,3)),
+        lambda x: KF.box_blur(x, (3,3)),
+        lambda x: KF.gaussian_blur2d(x, (3,3), (0.5,0.5)),  # denoise nhẹ
+        lambda x: KF.gaussian_blur2d(x, (5,5), (1.0,1.0)),  # smooth
+
+        # --- Noise ---
+        lambda x: x + 0.02 * torch.randn_like(x),
+        lambda x: x + 0.05 * torch.randn_like(x)
+    ]
+
+    print(f"Tổng augment: {len(kornia_augments)}")
+
+    # --- Danh sách ảnh ---
+    img_files = [f for f in os.listdir(img_dir)
+                 if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    if not img_files:
+        print(" Không tìm thấy ảnh.")
+        return np.array([]), np.array([])
+
+    all_features, all_names = [], []
+
+    with torch.no_grad():
+        for i, fname in enumerate(tqdm(img_files, desc="Extracting features"), 1):
+            try:
+                img_path = os.path.join(img_dir, fname)
+                img = Image.open(img_path).convert("L").convert("RGB")
+                img_tensor = transforms.ToTensor()(img).unsqueeze(0).to(device)  # (1,3,H,W)
+                img_tensor = transforms.Resize((224,224))(img_tensor)
+            except Exception as e:
+                print(f"Lỗi đọc ảnh {fname}: {e}")
+                continue
+
+            # --- Tạo batch augment ---
+            aug_batch = []
+            t0 = time.time()
+            for aug in kornia_augments:
+                out = aug(img_tensor) if callable(aug) else aug(img_tensor)
+                aug_batch.append(out)
+            aug_batch = torch.cat(aug_batch, dim=0)  # (24,3,224,224)
+            aug_batch = normalize(aug_batch)
+            print(f"Aug time: {time.time()-t0:.3f}s")
+
+            # --- Chia batch nhỏ nếu cần ---
+            feats_list = []
+            for j in range(0, len(aug_batch), batch_size):
+                sub_batch = aug_batch[j:j+batch_size]
+                feats = resnet(sub_batch)
+                feats = feats.view(feats.size(0), -1)
+                feats_list.append(feats.cpu())
+            feats_all = torch.cat(feats_list, dim=0)
+
+            # --- Lấy mean ---
+            mean_feat = feats_all.mean(dim=0).numpy()
+            all_features.append(mean_feat)
+            all_names.append(fname)
+
+            if i % 10 == 0 or i == len(img_files):
+                print(f" Xử lý {i}/{len(img_files)} ảnh...")
+
+    # --- Lưu ---
+    all_features = np.array(all_features)
+    all_names = np.array(all_names)
+
+    np.save(feature_file, all_features)
+    np.save(name_file, all_names)
+
+    print(f"\n Lưu xong: {feature_file}, {name_file}")
+    print("Hoàn tất trích xuất đặc trưng GPU (batch).")
+    return all_features, all_names
