@@ -1,68 +1,43 @@
-#ifndef MIN_HASH_H
-#define MIN_HASH_H
+#ifndef MINHASH_H
+#define MINHASH_H
 
 #include <vector>
-#include <set>
 #include <random>
-#include <iostream>
-#include <limits>
+#include <cmath>
 #include <algorithm>
+#include <stdexcept>
+#include <limits>
+#include <cstdint>
 
-using namespace std;
-
-class MinHash {
-private:
-    size_t numHashes;    
-    size_t dimension;  
-    
-    static constexpr long long prime = 2147483647; // 2^31 - -1
-    
-    vector<long long> a;
-    vector<long long> b;
-    
-    struct Item {
-        vector<double> featureVector;
-        vector<unsigned int> signature;
-    };
-    vector<Item> items;
-    
-    void generateCoefficients();
-    
-    unsigned int hash(int hashIndex, int element) const;
-
+class MinHash
+{
 public:
-    MinHash(size_t numHashes, size_t dimension);
-    
+    explicit MinHash(size_t numPlanes = 128, size_t dimension = 2048);
 
-    set<int> convertToSet(const vector<double>& featureVector);
-    
+    // Sinh hyperplanes ngẫu nhiên
+    void generateRandomHyperplanes();
 
-    vector<unsigned int> computeSignature(const set<int>& elementSet) const;
-    
+    // Tính signature cho toàn bộ dataset (và lưu mean, median, stddev)
+    std::vector<std::vector<uint8_t>> computeSignatures(
+        const std::vector<std::vector<double>> &matrix,
+        bool useMedianThreshold = false);
 
-    void addItem(const vector<double>& featureVector);
-    
+    std::vector<uint8_t> hashFunction(
+        const std::vector<double> &vec,
+        bool useMedianThreshold = false) const;
 
-    double estimateJaccardFromSignatures(const vector<unsigned int>& sig1, 
-                                         const vector<unsigned int>& sig2) const;
-    
+    const std::vector<std::vector<double>> &getHyperplanes() const;
+    const std::vector<double> &getMean() const;
+    const std::vector<double> &getMedian() const;
+    const std::vector<double> &getStddev() const;
 
-    static double JaccardSimilarity(const set<int>& A, const set<int>& B);
-    
-
-    vector<pair<int, double>> searchSimilarImages(const vector<double>& queryFeature, 
-                                            double threshold);
-    
-
-    size_t estimateCardinality(const vector<unsigned int>& signature, 
-                               size_t k, size_t range) const;
-
-    void print() const;
-
-    
-    const Item& getItem(size_t index) const { 
-        return items[index]; 
-    }
+private:
+    size_t numPlanes;
+    size_t dimension;
+    std::vector<std::vector<double>> randomHyperplanes; // [m][2048]
+    std::vector<double> mean;
+    std::vector<double> median;
+    std::vector<double> stddev;
 };
 
-#endif // MIN_HASH_H
+#endif // MINHASH_H

@@ -7,7 +7,10 @@ ext_modules = [
         sources=[
             "Hash Structure/Source/binding.cpp",
             "Hash Structure/Source/hash_table.cpp",
-            "Hash Structure/Source/min_hash.cpp"
+            "Hash Structure/Source/min_hash.cpp",
+            "Hash Structure/Source/bloom_filter.cpp",
+            "Hash Structure/Source/sim_hash.cpp",
+            "Hash Structure/Source/MurmurHash3.cpp"
         ],
         include_dirs=[
             pybind11.get_include(),
@@ -19,6 +22,6 @@ ext_modules = [
 
 setup(
     name="MyHash",
-    version="0.1",
+    version="0.0",
     ext_modules=ext_modules,
 )

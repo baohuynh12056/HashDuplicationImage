@@ -1,170 +1,165 @@
-#include "../Header/min_hash.h"
+#include "min_hash.h"
 
-void MinHash::generateCoefficients(){
-    random_device rd;
-    mt19937_64 gen(rd());
-    uniform_int_distribution<long long> distA(1, prime - 1);
-    uniform_int_distribution<long long> distB(0, prime - 1);
-
-    a.reserve(numHashes);
-    b.reserve(numHashes);
-
-    for (size_t i = 0; i < numHashes; ++i) {
-        a.push_back(distA(gen));
-        b.push_back(distB(gen));
-    }
+MinHash::MinHash(size_t numPlanes, size_t dimension)
+    : numPlanes(numPlanes),
+      dimension(dimension),
+      mean(dimension, 0.0),
+      median(dimension, 0.0),
+      stddev(dimension, 1.0)
+{
+    randomHyperplanes.resize(numPlanes, std::vector<double>(dimension));
+    generateRandomHyperplanes();
 }
 
-MinHash::MinHash(size_t numHashes, size_t dimension) 
-    : numHashes(numHashes), dimension(dimension) {
-    generateCoefficients();
-}
+void MinHash::generateRandomHyperplanes()
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<double> dist(0.0, 1.0);
 
-set<int> MinHash::convertToSet(const vector<double>& featureVector){
-    set<int> result;
-    double mean = 0;
-    for (double val : featureVector) {
-        mean += val;
-    }
-    mean /= featureVector.size();
-    
-    for (size_t i = 0; i < featureVector.size(); ++i) {
-        if (featureVector[i] > mean) {
-            result.insert(static_cast<int>(i));
+    for (size_t i = 0; i < numPlanes; ++i)
+    {
+        double norm = 0.0;
+        for (size_t j = 0; j < dimension; ++j)
+        {
+            randomHyperplanes[i][j] = dist(gen);
+            norm += randomHyperplanes[i][j] * randomHyperplanes[i][j];
         }
+        norm = std::sqrt(norm);
+        if (norm == 0.0)
+            norm = 1e-12;
+        for (size_t j = 0; j < dimension; ++j)
+            randomHyperplanes[i][j] /= norm;
     }
-    
-    if (result.empty()) {
-        result.insert(0);
-    }
-    
-    return result;
 }
 
-unsigned int MinHash::hash(int hashIndex, int element) const {
-    long long h = (a[hashIndex] * element + b[hashIndex]) % prime;
-    return static_cast<unsigned int>(h);
-}
+std::vector<std::vector<uint8_t>>
+MinHash::computeSignatures(const std::vector<std::vector<double>> &matrix,
+                           bool useMedianThreshold)
+{
+    size_t n = matrix.size();
+    if (n == 0)
+        return {};
 
-vector<unsigned int> MinHash::computeSignature(const set<int>& elementSet) const {
-    vector<unsigned int> signature(numHashes);
+    std::vector<std::vector<double>> v(n, std::vector<double>(dimension));
 
-    for (size_t i = 0; i < numHashes; ++i) {
-        unsigned int minHash = numeric_limits<unsigned int>::max();
-        
-
-        for (int element : elementSet) {
-            unsigned int hashVal = hash(i, element);
-            minHash = min(minHash, hashVal);
-        }
-        
-        signature[i] = minHash;
-    }
-    
-    return signature;
-}
-
-void MinHash::addItem(const vector<double>& featureVector) {
-    set<int> elementSet = convertToSet(featureVector);
-    vector<unsigned int> signature = computeSignature(elementSet);
-    
-    items.push_back({featureVector, signature});
-}
-
-double MinHash::estimateJaccardFromSignatures(const vector<unsigned int>& sig1, 
-                                               const vector<unsigned int>& sig2) const {
-    if (sig1.size() != sig2.size() || sig1.empty()) {
-        return 0.0;
-    }
-    
-    int matches = 0;
-    for (size_t i = 0; i < sig1.size(); ++i) {
-        if (sig1[i] == sig2[i]) {
-            ++matches;
-        }
-    }
-    
-    return static_cast<double>(matches) / sig1.size();
-}
-
-double MinHash::JaccardSimilarity(const set<int>& A, const set<int>& B) {
-    if (A.empty() && B.empty()) return 1.0;
-    if (A.empty() || B.empty()) return 0.0;
-    
-    vector<int> intersection;
-    set_intersection(A.begin(), A.end(), B.begin(), B.end(), 
-                     back_inserter(intersection));
-    
-    vector<int> unionSet;
-    set_union(A.begin(), A.end(), B.begin(), B.end(), 
-              back_inserter(unionSet));
-    
-    return static_cast<double>(intersection.size()) / unionSet.size();
-}
-
-vector<pair<int, double>> MinHash::searchSimilarImages(const vector<double>& queryFeature, 
-                                                  double threshold) {
-    set<int> querySet = convertToSet(queryFeature);
-    vector<unsigned int> querySignature = computeSignature(querySet);
-    
-    vector<pair<int, double>> results;
-    
-    for (size_t i = 0; i < items.size(); ++i) {
-        const auto& item = items[i];
-        double estimatedSim = estimateJaccardFromSignatures(querySignature, item.signature);
-        
-        if (estimatedSim >= threshold * 0.8) {
-            set<int> itemSet = convertToSet(item.featureVector);
-            double exactSim = JaccardSimilarity(querySet, itemSet);
-            
-            if (exactSim >= threshold) {
-                results.push_back({i, exactSim});
+    for (size_t i = 0; i < n; ++i)
+    {
+        const auto &row = matrix[i];
+        for (size_t j = 0; j < dimension; ++j)
+        {
+            double minval = std::numeric_limits<double>::infinity();
+            for (size_t p = 0; p < numPlanes; ++p)
+            {
+                double prod = row[j] * randomHyperplanes[p][j];
+                if (prod < minval)
+                    minval = prod;
             }
+            v[i][j] = minval;
         }
     }
 
-    sort(results.begin(), results.end(),
-         [](const pair<int, double>& a, const pair<int, double>& b) {
-             return a.second > b.second;
-         });
-    
-    return results;
-}
+    std::vector<double> tmp;
+    tmp.reserve(n);
 
+    for (size_t j = 0; j < dimension; ++j)
+    {
+        tmp.clear();
+        for (size_t i = 0; i < n; ++i)
+            tmp.push_back(v[i][j]);
 
-size_t MinHash::estimateCardinality(const vector<unsigned int>& signature, 
-                                    size_t k, size_t range) const {
-    if (k >= signature.size() || signature[k] == 0) {
-        return 0;
+        // mean
+        double s = 0.0;
+        for (double x : tmp)
+            s += x;
+        mean[j] = s / static_cast<double>(n);
+
+        // median
+        std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, tmp.end());
+        double med = tmp[tmp.size() / 2];
+        if (tmp.size() % 2 == 0)
+        {
+            double other = *std::max_element(tmp.begin(), tmp.begin() + tmp.size() / 2);
+            med = 0.5 * (med + other);
+        }
+        median[j] = med;
+
+        // stddev
+        double var = 0.0;
+        for (double x : tmp)
+        {
+            double d = x - mean[j];
+            var += d * d;
+        }
+        var /= static_cast<double>(n);
+        stddev[j] = std::sqrt(var);
+        if (stddev[j] < 1e-12)
+            stddev[j] = 1e-12;
     }
-    
 
-    vector<unsigned int> sortedSig = signature;
-    sort(sortedSig.begin(), sortedSig.end());
-    
-    unsigned int kthMin = sortedSig[k];
-    
+    std::vector<std::vector<uint8_t>> signatures(n, std::vector<uint8_t>(dimension, 0));
 
-    double normalized = static_cast<double>(kthMin) / range;
-    
-
-    if (normalized > 0) {
-        return static_cast<size_t>(k / normalized - 1);
-    }
-    
-    return 0;
-}
-
-void MinHash::print() const {
-    if (items.size() >= 2) {
-        std::cout << "Similarity estimates:" << std::endl;
-        for (size_t i = 0; i < items.size() - 1; ++i) {
-            for (size_t j = i + 1; j < items.size(); ++j) {
-                double sim = estimateJaccardFromSignatures(
-                    items[i].signature, items[j].signature);
-                std::cout << "Item " << i << " vs Item " << j << ": " << sim << std::endl;
+    for (size_t i = 0; i < n; ++i)
+    {
+        for (size_t j = 0; j < dimension; ++j)
+        {
+            bool bit;
+            if (useMedianThreshold)
+                bit = (v[i][j] >= median[j]);
+            else
+            {
+                double z = (v[i][j] - mean[j]) / stddev[j];
+                bit = (z > 0.0);
             }
+            signatures[i][j] = static_cast<uint8_t>(bit);
         }
     }
+
+    return signatures;
 }
 
+std::vector<uint8_t>
+MinHash::hashFunction(const std::vector<double> &vec,
+                      bool useMedianThreshold) const
+{
+    if (median.empty() || mean.empty() || stddev.empty())
+        throw std::runtime_error("Must call computeSignatures() before hashFunction()");
+
+    std::vector<double> minVals(dimension);
+    for (size_t j = 0; j < dimension; ++j)
+    {
+        double minval = std::numeric_limits<double>::infinity();
+        for (size_t p = 0; p < numPlanes; ++p)
+        {
+            double prod = vec[j] * randomHyperplanes[p][j];
+            if (prod < minval)
+                minval = prod;
+        }
+        minVals[j] = minval;
+    }
+
+    std::vector<uint8_t> bits(dimension, 0);
+    for (size_t j = 0; j < dimension; ++j)
+    {
+        bool bit;
+        if (useMedianThreshold)
+            bit = (minVals[j] >= median[j]);
+        else
+        {
+            double z = (minVals[j] - mean[j]) / stddev[j];
+            bit = (z > 0.0);
+        }
+        bits[j] = static_cast<uint8_t>(bit);
+    }
+
+    return bits;
+}
+
+// Getters
+const std::vector<std::vector<double>> &MinHash::getHyperplanes() const
+{
+    return randomHyperplanes;
+}
+const std::vector<double> &MinHash::getMean() const { return mean; }
+const std::vector<double> &MinHash::getMedian() const { return median; }
+const std::vector<double> &MinHash::getStddev() const { return stddev; }
