@@ -1,22 +1,18 @@
 import io
 import os
-import queue  # Important for cross-thread communication
 import sys
-import threading  # Important so the GUI doesn't freeze
+import threading  # Multithread for running GUI
 import time
 import traceback  # For error reporting
-from collections import defaultdict  # <-- ADDED for _evaluate_by_image
+from collections import defaultdict
 from tkinter import filedialog
 
 import customtkinter as ctk
-import numpy as np
 
 # --- Your Project Imports ---
 import MyHash
 from Application.cluster import build_cluster_faiss, build_clusters
 from Application.feature_extract import mean_extract_image_features_batch_1
-
-# from main import evaluate_by_image  # <-- REMOVED this import
 
 
 # This class captures print() statements and redirects them to the GUI
@@ -215,7 +211,6 @@ class App(ctk.CTk):
 
         # Calculate steps for a ~250ms animation
         steps = 10  # (Was 20)
-        delay_ms = 25  # 25ms * 10 steps = 250ms
 
         # Avoid division by zero if steps is 0
         increment = (
@@ -350,8 +345,6 @@ class App(ctk.CTk):
         sys.stdout = self.stdout_redirector
 
         try:
-            # === CALL YOUR BACKEND CODE HERE ===
-
             # --- Step 1: Feature Extraction ---
             self.after(
                 0,
