@@ -1,5 +1,6 @@
 import io
 import os
+import subprocess  # <-- ADDED for opening folder
 import sys
 import threading  # Multithread for running GUI
 import time
@@ -60,7 +61,7 @@ class App(ctk.CTk):
 
         # --- Control Widgets ---
         self.label_algo = ctk.CTkLabel(
-            self.frame_controls, text="Choose Module:"
+            self.frame_controls, text="Choose Algorithm:"
         )
         self.label_algo.grid(row=0, column=0, padx=10, pady=10, sticky="w")
 
@@ -188,9 +189,22 @@ class App(ctk.CTk):
             row=4, column=0, padx=10, pady=(0, 10), sticky="ew"
         )
 
+        # --- NEW: Open Folder Button ---
+        self.open_folder_button = ctk.CTkButton(
+            self.frame_chart,
+            text="Open Results Folder",
+            command=self.open_results_folder,
+            state="disabled",  # Start disabled
+        )
+        self.open_folder_button.grid(
+            row=5, column=0, padx=10, pady=(15, 10), sticky="ew"
+        )
+        # --- End of New Button ---
+
         # --- Threading & State ---
         self.processing_thread = None
         self.last_results = None  # To store results from the thread
+        self.last_cluster_dir = None  # <-- ADDED: Store path to results
 
         # Redirect stdout (for errors) to the results box
         self.stdout_redirector = StdoutRedirector(self.textbox_results)
@@ -210,7 +224,7 @@ class App(ctk.CTk):
         current_value = self.progress_determinate.get()
 
         # Calculate steps for a ~250ms animation
-        steps = 10  # (Was 20)
+        steps = 10
 
         # Avoid division by zero if steps is 0
         increment = (
@@ -256,7 +270,7 @@ class App(ctk.CTk):
 
     def animate_results(self, correct_pct, wrong_pct, step=0):
         """Animates the progress bars from 0 to their target value."""
-        total_steps = 25  # 25 steps over 250ms (10ms per step) (Was 50)
+        total_steps = 25  # 25 steps over 250ms (10ms per step)
         if step <= total_steps:
             # Calculate current position
             current_correct = (correct_pct / total_steps) * step
@@ -301,9 +315,13 @@ class App(ctk.CTk):
             text="Starting..."
         )  # Reset progress text
 
-        # Clear old results
+        # Clear old results and disable open button
         self.reset_chart()
         self.last_results = None
+        self.last_cluster_dir = None  # <-- ADDED: Reset path
+        self.open_folder_button.configure(
+            state="disabled"
+        )  # <-- ADDED: Disable button
 
         # Get values from GUI
         self.selected_algo = self.algo_var.get()
@@ -374,8 +392,9 @@ class App(ctk.CTk):
             self.after(
                 0, self.animate_progress_to, 0.85, "Clustering Images..."
             )
-            time.sleep(0.5)  # Short pause so user can read the label
+            # time.sleep(0.5) # Removed this delay
 
+            cluster_dir = "clusters"  # Default
             if self.selected_algo == "FAISS":
                 cluster_dir = "clusters_faiss"
                 build_cluster_faiss(
@@ -415,11 +434,15 @@ class App(ctk.CTk):
                     ht3, features, filenames, self.img_dir, 580, cluster_dir
                 )
 
+            # --- ADDED: Store the cluster path for the "Open Folder" button ---
+            self.last_cluster_dir = cluster_dir
+            # --- End of change ---
+
             # --- Step 3: Evaluation ---
             self.after(
                 0, self.animate_progress_to, 1.0, "Evaluating Results..."
             )
-            time.sleep(0.5)  # Short pause so user can read the label
+            # time.sleep(0.5) # Removed this delay
 
             # Use the internal evaluate function
             results = self._evaluate_by_image(cluster_dir)
@@ -473,7 +496,7 @@ class App(ctk.CTk):
             # 1. Update Text Report
             report_text = (
                 f"Evaluation Complete:\n\n"
-                f"Accuracy:    {accuracy:.2f}%\n"
+                f"Accuracy:      {accuracy:.2f}%\n"
                 f"Total Images:  {total}\n"
                 f"Correct:       {correct}\n"
                 f"Wrong:         {wrong}\n"
@@ -485,6 +508,10 @@ class App(ctk.CTk):
             wrong_pct = wrong / total if total > 0 else 0
             self.animate_results(correct_pct, wrong_pct)
 
+            # 3. --- ADDED: Enable "Open Folder" button if path exists ---
+            if self.last_cluster_dir:
+                self.open_folder_button.configure(state="normal")
+
         else:
             # Should not happen, but good to check
             self.textbox_results.insert(
@@ -493,6 +520,39 @@ class App(ctk.CTk):
 
         # Disable textbox again
         self.textbox_results.configure(state="disabled")
+
+    # --- NEW: Function to open the folder ---
+    def open_results_folder(self):
+        """Opens the cluster results directory in the OS file explorer."""
+        if not self.last_cluster_dir:
+            return  # Should not happen if button is disabled
+
+        # Ensure the path is absolute
+        path = os.path.abspath(self.last_cluster_dir)
+
+        if not os.path.isdir(path):
+            self.textbox_results.configure(state="normal")
+            self.textbox_results.delete("1.0", ctk.END)
+            self.textbox_results.insert(
+                "end", f"Error: Cannot find directory:\n{path}"
+            )
+            self.textbox_results.configure(state="disabled")
+            return
+
+        try:
+            if sys.platform == "win32":
+                os.startfile(path)
+            elif sys.platform == "darwin":  # macOS
+                subprocess.Popen(["open", path])
+            else:  # "linux", "linux2", etc.
+                subprocess.Popen(["xdg-open", path])
+        except Exception as e:
+            self.textbox_results.configure(state="normal")
+            self.textbox_results.delete("1.0", ctk.END)
+            self.textbox_results.insert("end", f"Error opening folder:\n{e}")
+            self.textbox_results.configure(state="disabled")
+
+    # --- End of new function ---
 
     def _evaluate_by_image(self, base_dir):
         """
