@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- THAY THẾ: Tiêu đề trang web của bạn -->
+    <title>DeduplicationImage - Dự Án Tìm Ảnh Trùng Lặp</title>
+    
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tải Font Awesome (để lấy icon GitHub) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        /* Thêm một font chữ mượt mà hơn */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+
+    <!-- Header / Thanh Điều Hướng -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- THAY THẾ: Tên dự án của bạn -->
+                <div class="flex-shrink-0">
+                    <span class="text-2xl font-bold text-indigo-600">DeduplicationImage</span>
+                </div>
+                
+                <!-- THAY THẾ: Thay '#' bằng link đến repo GitHub của bạn -->
+                <div class="flex items-center">
+                    <a href="https://github.com/AnNguyen241106/HashDuplicationImage" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="flex items-center text-gray-600 hover:text-indigo-600 transition-colors duration-300">
+                        <i class="fab fa-github text-2xl"></i>
+                        <span class="ml-2 font-medium hidden sm:block">Xem trên GitHub</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Phần Hero (Giới thiệu chính) -->
+    <header class="bg-white">
+        <div class="max-w-6xl mx-auto py-20 px-4 sm:px-6 lg:px-8 text-center">
+            <!-- THAY THẾ: Tiêu đề chính -->
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
+                DeduplicationImage
+            </h1>
+            
+            <!-- THAY THẾ: Mô tả ngắn gọn, hấp dẫn về dự án -->
+            <p class="mt-6 text-xl text-gray-600 max-w-3xl mx-auto">
+                Công cụ mạnh mẽ giúp bạn tìm kiếm và phân loại các hình ảnh trùng lặp hoặc tương tự một cách hiệu quả, giải phóng không gian lưu trữ.
+            </p>
+            
+            <!-- THAY THẾ: Các nút kêu gọi hành động. Thay '#' bằng link của bạn -->
+            <div class="mt-10 flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#" 
+                   class="bg-indigo-600 text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:bg-indigo-700 transition-transform transform hover:-translate-y-0.5 duration-300">
+                    Bắt Đầu Ngay
+                </a>
+                <a href="#" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   class="bg-gray-200 text-gray-800 font-semibold py-3 px-8 rounded-lg shadow-lg hover:bg-gray-300 transition-transform transform hover:-translate-y-0.5 duration-300">
+                    Đọc Tài Liệu
+                </a>
+            </div>
+        </div>
+    </C header>
+
+    <!-- Phần Tính Năng -->
+    <section id="features" class="py-20 bg-gray-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-center text-gray-900 mb-12">
+                Các Tính Năng Nổi Bật
+            </h2>
+            
+            <!-- THAY THẾ: Thêm/Sửa/Xóa các card tính năng bên dưới -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 lg:max-w-4xl lg:mx-auto gap-8">
+                <!-- Tính năng 1 -->
+                <div class="bg-white p-6 rounded-lg shadow-lg transition-shadow duration-300 hover:shadow-xl">
+                    <div class="text-indigo-500 mb-4">
+                        <!-- Bạn có thể thay icon từ Font Awesome -->
+                        <i class="fas fa-hdd text-3xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Phân loại ảnh</h3>
+                    <p class="text-gray-600">Phát hiện các ảnh trùng lặp hoặc tương tự nhau.</p>
+                </div>
+                
+                <!-- Tính năng 2 -->
+                <div class="bg-white p-6 rounded-lg shadow-lg transition-shadow duration-300 hover:shadow-xl">
+                    <div class="text-indigo-500 mb-4">
+                        <i class="fas fa-search text-3xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Tìm kiếm ảnh tương tự</h3>
+                    <p class="text-gray-600">Tìm kiếm ảnh tương tự trong bộ dữ liệu của chúng tôi.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Phần Demo / Ảnh chụp màn hình -->
+    <section id="demo" class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8">
+                DEMO
+            </h2>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto mb-10">
+                Một cái nhìn nhanh về giao diện hoặc kết quả của dự án.
+            </p>
+            
+            <!-- THAY THẾ: Thay 'src' bằng link ảnh chụp màn hình dự án của bạn -->
+            <!-- Bạn có thể upload ảnh lên chính repo GitHub và lấy link -->
+            <div class="shadow-2xl rounded-lg overflow-hidden bg-gray-100">
+                <img src="https://placehold.co/1000x600/e2e8f0/64748b?text=Demo+DeduplicationImage" 
+                     alt="Ảnh chụp màn hình dự án" 
+                     class="w-full h-auto object-cover">
+            </div>
+        </div>
+    </section>
+
+    <!-- Phần Hướng Dẫn Cài Đặt / Sử Dụng -->
+    <section id="usage" class="py-20 bg-gray-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-center text-gray-900 mb-12">
+                Cho Nhà Phát Triển
+            </h2>
+            
+            <div class="bg-white p-8 rounded-lg shadow-lg">
+                <!-- THAY THẾ: Sửa các bước hướng dẫn bên dưới -->
+                <h3 class="text-2xl font-semibold mb-4">Cài Đặt</h3>
+                <p class="text-gray-600 mb-4">Clone repository từ GitHub và cài đặt các thư viện cần thiết:</p>
+                <pre class="bg-gray-800 text-gray-100 p-4 rounded-lg overflow-x-auto">
+<code class="language-bash"># Clone repository (thay link bằng link repo của bạn)
+git clone https://github.com/AnNguyen241106/HashDuplicationImage
+
+# Đi vào thư mục dự án
+cd deduplicationimage
+
+# Cài đặt thư viện (ví dụ với pip)
+pip install -r requirements.txt</code>
+                </pre>
+                
+                <h3 class="text-2xl font-semibold mt-8 mb-4">Cách Sử Dụng</h3>
+                <p class="text-gray-600 mb-4">Đây là một ví dụ cơ bản về cách sử dụng (ví dụ với Python):</p>
+                <pre class="bg-gray-800 text-gray-100 p-4 rounded-lg overflow-x-auto">
+<code class="language-python"># Import thư viện của bạn
+from deduplication_image import Deduplicator
+
+# Khởi tạo
+dedup = Deduplicator()
+
+# Tải ảnh và tìm các cụm trùng lặp
+image_folder = './my-image-folder'
+clusters = dedup.cluster(image_folder)
+
+# Hiển thị kết quả
+clusters.show()</code>
+                </pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-300 py-12">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <!-- THAY THẾ: Tên của bạn và link GitHub cá nhân -->
+            <p class="mb-4">
+                Phát triển bởi 
+                <a href="#" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   class="text-indigo-400 hover:text-indigo-300 font-semibold">[Tên Của Bạn]</a>.
+            </p>
+            <p class="text-sm">
+                Bản quyền &copy; 2025 DeduplicationImage. Phát hành dưới 
+                <!-- THAY THẾ: Thay bằng giấy phép của bạn (ví dụ: MIT) -->
+                <a href="#" class="underline hover:text-white">Giấy phép MIT</a>.
+            </p>
+        </div>
+    </footer>
+
+</body>
+</html>
