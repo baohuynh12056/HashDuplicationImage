@@ -4,6 +4,13 @@ import numpy as np
 import cv2
 from collections import defaultdict,deque
 import faiss
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator # <--- Thêm thư viện này để xử lý trục số nguyên
+import random
+from scipy.signal import argrelextrema
+import scipy.ndimage.filters as filters
+from itertools import combinations
+from tqdm import tqdm
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR = os.path.join(BASE_DIR, "img")
 CLUSTER_DIR = "clusters"
@@ -243,3 +250,118 @@ def build_cluster_faiss(features, filenames, img_folder = IMG_DIR, cluster_dir =
 
     print(f"Có {len(hashtable)} bucket, {len(final_groups)} cụm.")
     return hashtable, final_groups
+
+def find_valley_threshold(distances, smooth_sigma=1.0):
+    """
+    Tìm threshold dựa trên vị trí thung lũng (valley) giữa 2 đỉnh của biểu đồ.
+    Sử dụng làm mượt Gaussian để tránh nhiễu răng cưa.
+    """
+    dist_arr = np.array(distances, dtype=int)
+    min_val, max_val = int(np.min(dist_arr)), int(np.max(dist_arr))
+    
+    # 1. Tính Histogram
+    bins = range(min_val, max_val + 2)
+    hist, bin_edges = np.histogram(dist_arr, bins=bins)
+    
+    # 2. Làm mượt biểu đồ (Gaussian Smoothing)
+    # Bước này cực quan trọng để loại bỏ các trồi sụt nhỏ (răng cưa)
+    # sigma càng lớn thì càng mượt
+    smooth_hist = filters.gaussian_filter1d(hist, sigma=smooth_sigma)
+    
+    local_min_indices = argrelextrema(smooth_hist, np.less, order=2)[0]
+    
+    
+    valid_threshold = None
+    
+    if len(local_min_indices) > 0:
+        # Lấy cực tiểu đầu tiên tìm thấy
+        # + min_val để bù lại offset nếu bin không bắt đầu từ 0
+        valid_threshold = local_min_indices[0] + min_val
+        
+        # Kiểm tra an toàn: Threshold không nên quá nhỏ (sát 0) hoặc quá lớn
+        # Nếu threshold tìm được < min + 2, có thể do nhiễu ở đầu, ta tìm cái tiếp theo
+        if valid_threshold < min_val + 2 and len(local_min_indices) > 1:
+             valid_threshold = local_min_indices[1] + min_val
+    else:
+        # Fallback: Nếu không tìm thấy thung lũng (biểu đồ chỉ có 1 dốc)
+        # Ta dùng percentile 5% hoặc 10% làm ngưỡng an toàn
+        print("Không tìm thấy thung lũng rõ ràng. Dùng Percentile an toàn.")
+        valid_threshold = int(np.percentile(dist_arr, 10))
+
+    return valid_threshold, smooth_hist
+
+def analyze_and_plot_distances(ht, features, sample_size=None):
+    """
+    Phân tích, vẽ histogram và TỰ ĐỘNG TÌM THRESHOLD TỐT NHẤT.
+    """
+    normalized_features = l2_normalize(features)
+    n_samples = len(normalized_features)
+    
+    # --- BƯỚC 1: Sinh Hash ---
+    hashes = []
+    hash_type = type(ht).__name__
+    print(f"[{hash_type}] Đang sinh mã hash ({n_samples} mẫu)...")
+    
+    # (Phần sinh hash giữ nguyên như code cũ...)
+    if hash_type == "SimHash":
+        ht.IDF(normalized_features.tolist())
+        for vec in normalized_features:
+            hashes.append(ht.hashFunction(vec.tolist()))
+    elif hash_type == "MinHash":
+        hashes = ht.computeSignatures(normalized_features.tolist(), useMedianThreshold=False)
+    elif hash_type == "BloomFilter" or hash_type == "HashTable":
+        for vec in normalized_features:
+            h = ht.hashFunction(vec.tolist())
+            hashes.append(h.tolist() if isinstance(h, np.ndarray) else h)
+    else:
+         raise ValueError(f"Loại hash '{hash_type}' chưa được hỗ trợ!")
+
+    # --- BƯỚC 2: Tính khoảng cách ---
+    if sample_size and n_samples > sample_size:
+        print(f"Lấy mẫu ngẫu nhiên {sample_size} ảnh...")
+        hashes = random.sample(hashes, sample_size)
+    
+    distances = []
+    pairs = list(combinations(hashes, 2))
+    print("Đang tính toán khoảng cách...")
+    
+    for h1, h2 in tqdm(pairs):
+        try:
+            distances.append(hamming_distance(h1, h2))
+        except ValueError: continue
+
+    if not distances: return []
+    # --- CHỈ SỬA PHẦN TÍNH THRESHOLD VÀ VẼ ---
+    dist_arr = np.array(distances, dtype=int)
+    min_val, max_val = int(np.min(dist_arr)), int(np.max(dist_arr))
+    
+    # TÍNH THRESHOLD THEO CÁCH MỚI (VALLEY)
+    best_threshold, smooth_hist = find_valley_threshold(dist_arr, smooth_sigma=1.5)
+    
+    print(f"-> Thuật toán tìm thung lũng đề xuất: {best_threshold}")
+
+    # # Vẽ biểu đồ
+    # plt.figure(figsize=(12, 6))
+    # bins = range(min_val, max_val + 2)
+    
+    # # Vẽ Histogram gốc (cột xanh)
+    # plt.hist(dist_arr, bins=bins, color='#3498db', alpha=0.5, edgecolor='black', align='left', label='Dữ liệu thực')
+    
+    # # Vẽ đường cong đã làm mượt (để minh họa cách máy tính nhìn thấy thung lũng)
+    # # Lưu ý: smooth_hist có len = len(bins)-1, cần vẽ khớp trục x
+    # x_smooth = np.arange(min_val, max_val + 1)
+    # plt.plot(x_smooth, smooth_hist, color='orange', linewidth=2, linestyle='-', label='Đường xu hướng (Smoothed)')
+    
+    # # Vẽ Threshold
+    # plt.axvline(best_threshold, color='red', linestyle='-', linewidth=2, label=f'Best Threshold (Valley): {best_threshold}')
+    
+    # ax = plt.gca()
+    # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    # if (max_val - min_val) < 40:
+    #     plt.xticks(range(min_val, max_val + 1))
+        
+    # plt.title(f'Phân tích điểm cắt thung lũng (Valley Detection)', fontsize=14)
+    # plt.legend()
+    # plt.show()
+    
+    return best_threshold
