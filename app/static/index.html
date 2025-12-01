@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Intelligent Image Deduplicator</title>
+
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230c0211'/><circle cx='50' cy='50' r='30' fill='%23fcd34d' opacity='0.5'/><path d='M50 20 L75 50 L50 80 L25 50 Z' fill='%23ffffff' stroke='%23fcd34d' stroke-width='2'/></svg>"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="h-screen flex flex-col m-0 p-0 bg-[#121212]">
+    <header
+      class="h-14 bg-[#181818] border-b border-[#333] flex items-center justify-between px-6 z-50 relative select-none shrink-0"
+    >
+      <div class="absolute left-1/2 transform -translate-x-1/2">
+        <h1
+          class="flex items-center gap-1 text-lg font-bold text-gray-200 tracking-wide"
+        >
+          Image<span class="font-light text-gray-400">Deduplicator</span>
+        </h1>
+      </div>
+      <button
+        id="toggle-config-btn"
+        class="flex items-center gap-2 text-xs text-gray-400 hover:text-white bg-[#252526] hover:bg-[#333] px-3 py-1.5 rounded transition border border-[#333]"
+      >
+        <span id="config-status-text">Hide Config</span>
+        <svg
+          id="config-arrow"
+          class="w-3 h-3 transform transition-transform duration-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M19 9l-7 7-7-7"
+          ></path>
+        </svg>
+      </button>
+    </header>
+
+    <div
+      id="control-panel"
+      class="bg-[#1c1c1c] border-b border-[#333] shadow-2xl relative z-40 shrink-0"
+    >
+      <div class="max-w-full px-6 py-4">
+        <div class="flex flex-col md:flex-row gap-6 items-stretch">
+          <div
+            id="step-upload"
+            class="flex-1 bg-[#252526] p-4 rounded-xl border border-[#333] flex flex-col justify-center transition-all duration-300"
+          >
+            <div class="flex items-center gap-2 mb-3">
+              <span
+                class="bg-violet-600/20 text-violet-400 text-[10px] font-bold px-2 py-0.5 rounded border border-violet-600/30"
+                >STEP 01</span
+              >
+              <h3
+                class="text-xs font-bold text-gray-300 tracking-widest uppercase"
+              >
+                Upload Images
+              </h3>
+            </div>
+
+            <div class="flex gap-3 items-center">
+              <input
+                type="file"
+                id="image-folder-input"
+                class="hidden"
+                multiple
+                webkitdirectory
+                directory
+              />
+
+              <label
+                for="image-folder-input"
+                class="cursor-pointer bg-[#333] hover:bg-[#444] text-white h-10 px-4 rounded-lg border border-[#555] text-xs font-bold flex items-center gap-2 transition shrink-0 whitespace-nowrap"
+              >
+                <svg
+                  class="w-4 h-4 text-violet-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                  ></path>
+                </svg>
+                BROWSE FOLDER
+              </label>
+
+              <div class="flex-1 min-w-0 flex flex-col justify-center h-10">
+                <div
+                  id="upload-status"
+                  class="text-[11px] text-gray-500 font-mono truncate leading-tight"
+                >
+                  No folder selected
+                </div>
+                <div
+                  class="w-full bg-[#1a1a1a] h-1.5 rounded-full overflow-hidden border border-[#333] mt-1.5"
+                >
+                  <div
+                    id="upload-bar"
+                    class="bg-gradient-to-r from-violet-600 to-fuchsia-500 h-full w-0 transition-all duration-300"
+                  ></div>
+                </div>
+              </div>
+
+              <button
+                id="btn-upload"
+                class="bg-white hover:bg-gray-200 text-black font-extrabold text-[10px] h-10 px-5 rounded-lg transition shadow-lg tracking-wider shrink-0 uppercase"
+              >
+                Upload
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="hidden md:block w-px bg-gradient-to-b from-transparent via-[#444] to-transparent"
+          ></div>
+
+          <div
+            id="step-process"
+            class="flex-1 bg-[#252526] p-4 rounded-xl border border-[#333] flex flex-col justify-center transition-all duration-300 opacity-40 pointer-events-none grayscale"
+          >
+            <div class="flex items-center gap-2 mb-3">
+              <span
+                class="bg-emerald-600/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-600/30"
+                >STEP 02</span
+              >
+              <h3
+                class="text-xs font-bold text-gray-300 tracking-widest uppercase"
+              >
+                Analyze & Deduplicate
+              </h3>
+            </div>
+
+            <div class="flex gap-3 items-end h-10">
+              <div class="flex-1 relative">
+                <select
+                  id="algorithm"
+                  class="w-full h-10 bg-[#1a1a1a] border border-[#444] text-gray-200 text-xs rounded-lg px-3 outline-none focus:border-emerald-500 appearance-none font-mono"
+                >
+                  <option value="SimHash">SimHash</option>
+                  <option value="HashTable">HashTable</option>
+                  <option value="MinHash">MinHash</option>
+                  <option value="BloomFilter">BloomFilter</option>
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+                >
+                  <svg
+                    class="w-3 h-3 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+
+              <button
+                id="start-clustering-btn"
+                class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs h-10 px-6 rounded-lg shadow-lg transition transform active:scale-95 flex items-center gap-2 shrink-0"
+              >
+                START PROCESS
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-1 flex flex-col min-h-0 relative">
+      <div
+        class="flex justify-center bg-[#181818] border-b border-[#333] shrink-0 z-20 relative"
+      >
+        <button
+          class="tab-button px-8 py-3 text-sm text-gray-400 hover:text-gray-200 font-medium"
+          data-tab="summary"
+        >
+          Summary
+        </button>
+        <button
+          class="tab-button px-8 py-3 text-sm text-gray-400 hover:text-gray-200 font-medium"
+          data-tab="browser"
+        >
+          Cluster Browser
+        </button>
+        <button
+          class="tab-button px-8 py-3 text-sm text-gray-400 hover:text-gray-200 font-medium"
+          data-tab="stats"
+        >
+          Statistics
+        </button>
+        <button
+          class="tab-button px-8 py-3 text-sm text-gray-400 hover:text-gray-200 font-medium flex items-center gap-2"
+          data-tab="universe"
+        >
+          Universe Map
+          <span
+            class="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded font-bold tracking-wide"
+            >3D</span
+          >
+        </button>
+      </div>
+
+      <div class="flex-1 relative bg-[#121212] overflow-hidden">
+        <div
+          id="hero-landing"
+          class="absolute inset-0 flex flex-col items-center justify-center z-10 overflow-hidden pointer-events-none"
+        >
+          <div
+            class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_#1B0F2E_0%,_#000000_100%)] z-0"
+          ></div>
+
+          <div class="absolute inset-0 hero-bg-animated z-0 opacity-60"></div>
+
+          <div class="star-layer stars-tiny" style="z-index: 0"></div>
+
+          <div
+            class="star-layer stars-small opacity-80"
+            style="z-index: 0"
+          ></div>
+          <div
+            class="star-layer stars-medium opacity-80"
+            style="z-index: 0"
+          ></div>
+
+          <div class="relative z-10 w-[1000px] max-w-[90vmin] hero-floating">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+              <defs>
+                <radialGradient
+                  id="goldCore"
+                  cx="50%"
+                  cy="50%"
+                  r="50%"
+                  fx="50%"
+                  fy="50%"
+                >
+                  <stop
+                    offset="0%"
+                    style="stop-color: #ffffff; stop-opacity: 1"
+                  />
+                  <stop
+                    offset="30%"
+                    style="stop-color: #fcd34d; stop-opacity: 1"
+                  />
+                  <stop
+                    offset="70%"
+                    style="stop-color: #d97706; stop-opacity: 0.8"
+                  />
+                  <stop
+                    offset="100%"
+                    style="stop-color: #7c2d12; stop-opacity: 0"
+                  />
+                </radialGradient>
+
+                <linearGradient
+                  id="dupeEnergy"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <stop
+                    offset="0%"
+                    class="text-glow-anim"
+                    style="stop-color: #6a0dad; stop-opacity: 0.6"
+                  />
+                  <stop
+                    offset="100%"
+                    style="stop-color: #3b82f6; stop-opacity: 0.6"
+                  />
+                </linearGradient>
+
+                <filter
+                  id="intenseGlow"
+                  x="-100%"
+                  y="-100%"
+                  width="300%"
+                  height="300%"
+                >
+                  <feGaussianBlur stdDeviation="6" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <g transform="translate(300, 180)">
+                <g opacity="0.6" class="spin-cinematic-reverse">
+                  <circle
+                    cx="-45"
+                    cy="0"
+                    r="50"
+                    fill="url(#dupeEnergy)"
+                    filter="url(#intenseGlow)"
+                    opacity="0.5"
+                    style="mix-blend-mode: screen"
+                  />
+                  <circle
+                    cx="45"
+                    cy="0"
+                    r="50"
+                    fill="url(#dupeEnergy)"
+                    filter="url(#intenseGlow)"
+                    opacity="0.5"
+                    transform="scale(-1,1)"
+                    style="mix-blend-mode: screen"
+                  />
+                </g>
+
+                <g class="spin-cinematic" opacity="0.4">
+                  <path
+                    d="M-150,20 C-80,20 -50,0 0,0"
+                    stroke="#6a0dad"
+                    stroke-width="2"
+                    fill="none"
+                  />
+                  <path
+                    d="M150,-20 C80,-20 50,0 0,0"
+                    stroke="#3b82f6"
+                    stroke-width="2"
+                    fill="none"
+                  />
+                  <circle
+                    cx="-120"
+                    cy="20"
+                    r="3"
+                    fill="#fff"
+                    filter="url(#intenseGlow)"
+                  />
+                  <circle
+                    cx="120"
+                    cy="-20"
+                    r="3"
+                    fill="#fff"
+                    filter="url(#intenseGlow)"
+                  />
+                </g>
+
+                <g class="pulse-core" filter="url(#intenseGlow)">
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="28"
+                    fill="url(#goldCore)"
+                    opacity="0.7"
+                  />
+                  <circle cx="0" cy="0" r="12" fill="#ffffff" opacity="0.9" />
+                  <g
+                    stroke="#fcd34d"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    opacity="0.9"
+                  >
+                    <line x1="-65" y1="0" x2="65" y2="0" />
+                    <line x1="0" y1="-65" x2="0" y2="65" />
+                    <line
+                      x1="-30"
+                      y1="-30"
+                      x2="30"
+                      y2="30"
+                      stroke-width="1"
+                      opacity="0.5"
+                    />
+                    <line
+                      x1="-30"
+                      y1="30"
+                      x2="30"
+                      y2="-30"
+                      stroke-width="1"
+                      opacity="0.5"
+                    />
+                  </g>
+                </g>
+              </g>
+
+              <text
+                x="300"
+                y="330"
+                text-anchor="middle"
+                font-family="'Outfit', sans-serif"
+                font-size="36"
+                font-weight="700"
+                fill="#ffffff"
+                letter-spacing="8"
+                filter="url(#intenseGlow)"
+                opacity="0.9"
+              >
+                IMAGE
+                <tspan fill="#fcd34d">DEDUPLICATOR</tspan>
+              </text>
+
+              <text
+                x="300"
+                y="360"
+                text-anchor="middle"
+                font-family="'JetBrains Mono', monospace"
+                font-size="10"
+                font-weight="400"
+                fill="#a78bfa"
+                letter-spacing="4"
+                opacity="0.6"
+              >
+                A.I PERCEPTUAL HASHING SYSTEM
+              </text>
+            </svg>
+          </div>
+        </div>
+        <div
+          id="tab-summary"
+          class="tab-content h-full p-8 overflow-auto hidden"
+        >
+          <div class="max-w-6xl mx-auto animate-fade-in">
+            <div
+              class="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-[#333] pb-6"
+            >
+              <div>
+                <h2 class="text-3xl font-bold text-white mb-2 tracking-tight">
+                  Mission Report
+                </h2>
+                <p class="text-gray-400 text-sm font-mono">
+                  Session ID:
+                  <span id="summary-session-id" class="text-violet-400"
+                    >WAITING...</span
+                  >
+                </p>
+              </div>
+              <div
+                id="summary-impact-badge"
+                class="hidden px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg"
+              >
+                <span
+                  class="text-xs text-emerald-400 font-mono font-bold tracking-widest uppercase"
+                  >Potential Savings</span
+                >
+                <div
+                  class="text-xl font-bold text-white"
+                  id="summary-savings-text"
+                >
+                  0%
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="summary-content"
+              class="text-gray-500 text-center py-20 italic bg-[#1e1e1e]/50 rounded-xl border border-dashed border-[#333]"
+            >
+              <div class="text-4xl mb-4">waiting_for_data...</div>
+              <p class="font-mono text-sm">
+                Upload images and start processing to generate highlights.
+              </p>
+            </div>
+
+            <div id="summary-visuals" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div
+                  class="p-6 rounded-xl bg-gradient-to-br from-[#1e1e1e] to-[#161616] border border-[#333]"
+                >
+                  <div
+                    class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2"
+                  >
+                    Scanned Assets
+                  </div>
+                  <div id="sum-total-img" class="text-3xl font-bold text-white">
+                    0
+                  </div>
+                </div>
+                <div
+                  class="p-6 rounded-xl bg-gradient-to-br from-[#1e1e1e] to-[#161616] border border-[#333]"
+                >
+                  <div
+                    class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2"
+                  >
+                    Redundant Copies
+                  </div>
+                  <div
+                    id="sum-dupes-img"
+                    class="text-3xl font-bold text-red-400"
+                  >
+                    0
+                  </div>
+                </div>
+                <div
+                  class="p-6 rounded-xl bg-gradient-to-br from-[#1e1e1e] to-[#161616] border border-[#333]"
+                >
+                  <div
+                    class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2"
+                  >
+                    Detected Clusters
+                  </div>
+                  <div
+                    id="sum-clusters-img"
+                    class="text-3xl font-bold text-violet-400"
+                  >
+                    0
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 mb-6">
+                <div
+                  class="h-px bg-gradient-to-r from-violet-500 to-transparent flex-1"
+                ></div>
+                <h3
+                  class="text-lg font-bold text-gray-200 flex items-center gap-2"
+                >
+                  <span class="text-violet-500">◈</span> PRIORITY TARGETS
+                </h3>
+                <div
+                  class="h-px bg-gradient-to-l from-violet-500 to-transparent flex-1"
+                ></div>
+              </div>
+
+              <p class="text-gray-400 text-sm mb-6 text-center">
+                The following groups consume the most space. Click any card to
+                review and clean up immediately.
+              </p>
+
+              <div
+                id="priority-grid"
+                class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-browser" class="tab-content hidden absolute inset-0">
+          <div
+            class="w-72 bg-[#181818] border-r border-[#333] flex flex-col shrink-0"
+          >
+            <div class="p-4 border-b border-[#333] shrink-0">
+              <input
+                type="text"
+                id="cluster-search"
+                class="w-full bg-[#252526] border border-[#444] rounded px-3 py-2 text-xs text-white focus:border-violet-500 outline-none transition placeholder-gray-600"
+                placeholder="Filter clusters..."
+              />
+            </div>
+            <div
+              id="cluster-list"
+              class="flex-1 overflow-y-auto p-2 space-y-1 min-h-0"
+            ></div>
+            <div
+              class="p-4 border-t border-[#333] flex flex-col gap-2 shrink-0"
+            >
+              <button
+                id="download-btn"
+                class="hidden w-full bg-[#252526] hover:bg-[#333] text-gray-300 text-xs font-medium py-2.5 rounded border border-[#444] transition"
+              >
+                Download Results (.ZIP)
+              </button>
+              <button
+                id="delete-group-btn"
+                class="hidden w-full bg-red-900/20 hover:bg-red-900/40 text-red-400 text-xs font-medium py-2.5 rounded border border-red-900/30 transition"
+              >
+                Delete Entire Group
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 flex flex-col min-w-0">
+            <div
+              class="h-14 border-b border-[#333] flex items-center justify-between px-6 bg-[#181818] shrink-0"
+            >
+              <h3
+                id="thumbnail-header"
+                class="font-semibold text-gray-200 text-sm"
+              >
+                Select a cluster
+              </h3>
+              <div class="flex gap-2">
+                <button
+                  id="select-all-btn"
+                  class="text-xs bg-[#252526] hover:bg-[#333] text-gray-300 border border-[#444] px-3 py-1.5 rounded font-medium transition"
+                >
+                  All
+                </button>
+                <button
+                  id="deselect-all-btn"
+                  class="text-xs bg-[#252526] hover:bg-[#333] text-gray-300 border border-[#444] px-3 py-1.5 rounded font-medium transition"
+                >
+                  None
+                </button>
+                <button
+                  id="keep-best-btn"
+                  class="text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30 px-4 py-1.5 rounded font-bold tracking-wide transition shadow-sm flex items-center gap-2"
+                >
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Keep Best
+                </button>
+              </div>
+            </div>
+
+            <div
+              id="thumbnail-gallery"
+              class="flex-1 overflow-y-auto bg-[#121212] p-6 min-h-0"
+            ></div>
+
+            <div
+              class="h-16 border-t border-[#333] bg-[#181818] flex items-center justify-end px-6 gap-3 shrink-0"
+            >
+              <button
+                id="delete-btn"
+                class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-bold py-2.5 px-5 rounded disabled:opacity-30 disabled:cursor-not-allowed transition uppercase tracking-wide"
+                disabled
+              >
+                Delete Selected
+              </button>
+              <button
+                id="move-btn"
+                class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-bold py-2.5 px-5 rounded disabled:opacity-30 disabled:cursor-not-allowed transition uppercase tracking-wide"
+                disabled
+              >
+                Move
+              </button>
+              <button
+                id="smart-cleanup-btn"
+                class="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2.5 px-5 rounded disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-violet-500/20 uppercase tracking-wide"
+              >
+                Keep Selected & Delete Rest
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          id="tab-stats"
+          class="tab-content h-full p-8 overflow-auto hidden bg-[#121212]"
+        >
+          <div id="stats-empty" class="text-center text-gray-600 mt-20 italic">
+            Run processing to view statistics.
+          </div>
+          <div id="stats-content" class="hidden w-full space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div class="bg-[#1e1e1e] border border-[#333] rounded-xl p-5 relative h-80 flex flex-col">
+                <h4 class="text-lg font-bold text-gray-200 mb-2 shrink-0">
+                  Cluster Size Distribution
+                </h4>
+                <div class="relative flex-1 min-h-0 w-full">
+                  <canvas id="chart-dist-new"></canvas>
+                </div>
+              </div>
+              <div class="bg-[#1e1e1e] border border-[#333] rounded-xl p-5 relative h-80 flex flex-col">
+                <h4 class="text-lg font-bold text-gray-200 mb-2 shrink-0">
+                  Deduplication Ratio
+                </h4>
+                <div class="relative flex-1 min-h-0 w-full flex justify-center">
+                  <canvas id="chart-ratio-new"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div class="bg-[#1e1e1e] border border-[#333] rounded-xl p-6 h-96 flex flex-col">
+                <h4 class="text-lg font-bold text-gray-200 mb-4 shrink-0">
+                  Pipeline Timeline
+                </h4>
+                <div id="pipeline-steps" class="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                  </div>
+              </div>
+
+              <div class="lg:col-span-2 bg-[#1e1e1e] border border-[#333] rounded-xl p-6 flex flex-col h-96">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                  <h4 class="text-lg font-bold text-gray-200">
+                      Performance Metrics
+                  </h4>
+                  <div class="flex gap-4">
+                      <span class="flex items-center gap-2 text-xs text-gray-400 font-medium">
+                          <span class="w-2.5 h-2.5 rounded-full bg-violet-500"></span> Current
+                      </span>
+                      <span class="flex items-center gap-2 text-xs text-gray-400 font-medium">
+                          <span class="w-2.5 h-2.5 rounded-full bg-[#333] border border-gray-600"></span> Benchmark
+                      </span>
+                  </div>
+                </div>
+                
+                <div class="relative flex-1 min-h-0 w-full flex justify-center items-center">
+                    <canvas id="chart-ai-radar"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+        <div id="tab-universe" class="tab-content hidden">
+          <div class="star-layer stars-tiny"></div>
+
+          <div class="star-layer stars-small"></div>
+          <div class="star-layer stars-medium"></div>
+
+          <div
+            id="universe-empty"
+            class="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none"
+          >
+            <div
+              class="w-24 h-24 mb-4 rounded-full bg-violet-600/20 animate-pulse blur-2xl"
+            ></div>
+            <p class="text-gray-500 font-mono text-xs tracking-[0.2em]">
+              WAITING FOR DATA...
+            </p>
+          </div>
+
+          <div id="plotly-div"></div>
+
+          <div id="map-controls" class="bottom-controls glass-panel-ui hidden">
+            <label class="switch-label">
+              <input
+                type="checkbox"
+                id="toggle-rotate"
+                class="toggle-switch"
+                checked
+              />
+              <span>Orbit</span>
+            </label>
+            <div class="w-px h-4 bg-white/20"></div>
+            <label class="switch-label">
+              <input type="checkbox" id="toggle-lines" class="toggle-switch" />
+              <span>Constellations</span>
+            </label>
+          </div>
+
+          <div
+            id="universe-tooltip"
+            class="absolute hidden bg-[#09090b]/95 border border-white/10 backdrop-blur-xl rounded-xl p-3 shadow-2xl flex flex-col items-center gap-2 w-48 z-[100] pointer-events-none transition-opacity"
+          >
+            <div
+              class="relative w-40 h-40 bg-black/50 rounded-lg overflow-hidden border border-white/5"
+            >
+              <img id="tooltip-img" class="w-full h-full object-contain" />
+            </div>
+            <div class="text-center w-full">
+              <div class="flex justify-center gap-2 mb-1">
+                <span
+                  id="tooltip-cluster"
+                  class="text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-gray-300"
+                ></span>
+                <span
+                  id="tooltip-score"
+                  class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold"
+                ></span>
+              </div>
+              <p
+                id="tooltip-name"
+                class="text-[10px] font-mono text-gray-400 truncate w-full"
+              ></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="loading-overlay"
+      class="hidden fixed inset-0 bg-[#05010a]/95 z-[9999] flex items-center justify-center overflow-hidden"
+    >
+      <div class="loading-bg-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+          <defs>
+            <radialGradient
+              id="goldCoreBg"
+              cx="50%"
+              cy="50%"
+              r="50%"
+              fx="50%"
+              fy="50%"
+            >
+              <stop offset="0%" style="stop-color: #ffffff; stop-opacity: 1" />
+              <stop offset="30%" style="stop-color: #fcd34d; stop-opacity: 1" />
+              <stop
+                offset="70%"
+                style="stop-color: #d97706; stop-opacity: 0.8"
+              />
+              <stop
+                offset="100%"
+                style="stop-color: #7c2d12; stop-opacity: 0"
+              />
+            </radialGradient>
+            <linearGradient id="dupeEnergyBg" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop
+                offset="0%"
+                style="stop-color: #6a0dad; stop-opacity: 0.6"
+              />
+              <stop
+                offset="100%"
+                style="stop-color: #3b82f6; stop-opacity: 0.6"
+              />
+            </linearGradient>
+            <filter
+              id="intenseGlowBg"
+              x="-100%"
+              y="-100%"
+              width="300%"
+              height="300%"
+            >
+              <feGaussianBlur stdDeviation="8" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <g transform="translate(200, 200)">
+            <g opacity="0.3">
+              <circle
+                cx="-40"
+                cy="0"
+                r="100"
+                fill="url(#dupeEnergyBg)"
+                filter="url(#intenseGlowBg)"
+                opacity="0.5"
+                style="mix-blend-mode: screen"
+              />
+              <circle
+                cx="40"
+                cy="0"
+                r="100"
+                fill="url(#dupeEnergyBg)"
+                filter="url(#intenseGlowBg)"
+                opacity="0.5"
+                transform="scale(-1,1)"
+                style="mix-blend-mode: screen"
+              />
+            </g>
+            <g filter="url(#intenseGlowBg)">
+              <circle
+                cx="0"
+                cy="0"
+                r="50"
+                fill="url(#goldCoreBg)"
+                opacity="0.7"
+              />
+              <line
+                x1="-150"
+                y1="0"
+                x2="150"
+                y2="0"
+                stroke="#fcd34d"
+                stroke-width="4"
+                opacity="0.5"
+                stroke-linecap="round"
+              />
+              <line
+                x1="0"
+                y1="-150"
+                x2="0"
+                y2="150"
+                stroke="#fcd34d"
+                stroke-width="4"
+                opacity="0.5"
+                stroke-linecap="round"
+              />
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <div
+        class="bg-[#1c1c1c] rounded-2xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden flex flex-col items-center"
+      >
+        <div class="loading-fg-logo-container">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="100 50 400 300"
+            class="w-full h-full"
+          >
+            <defs>
+              <radialGradient
+                id="goldCoreFg"
+                cx="50%"
+                cy="50%"
+                r="50%"
+                fx="50%"
+                fy="50%"
+              >
+                <stop
+                  offset="0%"
+                  style="stop-color: #ffffff; stop-opacity: 1"
+                />
+                <stop
+                  offset="30%"
+                  style="stop-color: #fcd34d; stop-opacity: 1"
+                />
+                <stop
+                  offset="70%"
+                  style="stop-color: #d97706; stop-opacity: 0.8"
+                />
+                <stop
+                  offset="100%"
+                  style="stop-color: #7c2d12; stop-opacity: 0"
+                />
+              </radialGradient>
+              <linearGradient
+                id="dupeEnergyFg"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
+                <stop
+                  offset="0%"
+                  style="stop-color: #6a0dad; stop-opacity: 0.6"
+                />
+                <stop
+                  offset="100%"
+                  style="stop-color: #3b82f6; stop-opacity: 0.6"
+                />
+              </linearGradient>
+              <filter
+                id="intenseGlowFg"
+                x="-100%"
+                y="-100%"
+                width="300%"
+                height="300%"
+              >
+                <feGaussianBlur stdDeviation="5" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <g transform="translate(300, 180)">
+              <g opacity="0.8">
+                <circle
+                  cx="-40"
+                  cy="0"
+                  r="45"
+                  fill="url(#dupeEnergyFg)"
+                  filter="url(#intenseGlowFg)"
+                  opacity="0.5"
+                  style="mix-blend-mode: screen"
+                />
+                <circle
+                  cx="40"
+                  cy="0"
+                  r="45"
+                  fill="url(#dupeEnergyFg)"
+                  filter="url(#intenseGlowFg)"
+                  opacity="0.5"
+                  transform="scale(-1,1)"
+                  style="mix-blend-mode: screen"
+                />
+              </g>
+              <g class="pulse-core" filter="url(#intenseGlowFg)">
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="28"
+                  fill="url(#goldCoreFg)"
+                  opacity="0.8"
+                />
+                <line
+                  x1="-60"
+                  y1="0"
+                  x2="60"
+                  y2="0"
+                  stroke="#fcd34d"
+                  stroke-width="2"
+                  opacity="0.9"
+                  stroke-linecap="round"
+                />
+                <line
+                  x1="0"
+                  y1="-60"
+                  x2="0"
+                  y2="60"
+                  stroke="#fcd34d"
+                  stroke-width="2"
+                  opacity="0.9"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M0,-22 L18,0 L0,22 L-18,0 Z"
+                  fill="#ffffff"
+                  stroke="#fcd34d"
+                  stroke-width="1"
+                />
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <h3
+          class="text-xl font-bold text-white mb-2 text-center tracking-wide uppercase"
+        >
+          Processing...
+        </h3>
+        <p
+          id="loading-text"
+          class="text-sm text-gray-400 mb-6 text-center font-mono"
+        >
+          Initializing pipeline & analyzing assets...
+        </p>
+
+        <div class="w-full bg-[#333] rounded-full h-2 overflow-hidden relative">
+          <div class="absolute inset-0 bg-violet-900/30 animate-pulse"></div>
+          <div
+            id="loading-bar"
+            class="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-indigo-600 h-full transition-all duration-300 relative relative"
+            style="width: 0%; box-shadow: 0 0 20px rgba(139, 92, 246, 0.5)"
+          >
+            <div
+              class="absolute top-0 right-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/30 animate-shimmer"
+              style="transform: skewX(-20deg) translateX(-100%)"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="image-modal"
+      class="hidden fixed inset-0 bg-black/95 z-[10000] flex items-center justify-center p-8 backdrop-blur-sm group"
+      onclick="this.classList.add('hidden')"
+    >
+      <div
+        class="absolute inset-0 pointer-events-none z-10 bg-scanline opacity-20"
+      ></div>
+      <div
+        class="absolute inset-0 pointer-events-none z-20 border-[1px] border-white/10 m-10 rounded-lg"
+      >
+        <div
+          class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-violet-500"
+        ></div>
+        <div
+          class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-violet-500"
+        ></div>
+        <div
+          class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-violet-500"
+        ></div>
+        <div
+          class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-violet-500"
+        ></div>
+      </div>
+
+      <img
+        id="modal-image"
+        class="max-w-full max-h-full object-contain rounded shadow-2xl border border-white/10 transition-transform duration-500 scale-95 opacity-0 modal-img-anim"
+      />
+    </div>
+
+    <div
+      id="move-modal"
+      class="hidden fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center backdrop-blur-sm"
+    >
+      <div
+        class="bg-[#1c1c1c] border border-[#333] rounded-xl p-6 w-96 shadow-2xl"
+      >
+        <h3 class="text-lg font-bold text-white mb-4">Move Images</h3>
+        <div class="mb-4">
+          <label class="block text-xs text-gray-400 mb-1 uppercase font-bold"
+            >Destination Cluster</label
+          >
+          <select
+            id="move-cluster-select"
+            class="w-full bg-[#252526] border border-[#444] rounded px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
+          ></select>
+        </div>
+        <div id="move-new-cluster-input-group" class="mb-6 hidden">
+          <label class="block text-xs text-gray-400 mb-1 uppercase font-bold"
+            >New Name</label
+          >
+          <input
+            id="move-new-cluster-name"
+            type="text"
+            class="w-full bg-[#252526] border border-[#444] rounded px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
+            placeholder="e.g., group_favorites"
+          />
+        </div>
+        <div class="flex justify-end gap-3">
+          <button
+            id="move-cancel-btn"
+            class="px-4 py-2 rounded text-xs font-bold text-gray-400 hover:bg-[#333] transition"
+          >
+            CANCEL
+          </button>
+          <button
+            id="move-confirm-btn"
+            class="px-4 py-2 rounded text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-lg transition"
+          >
+            CONFIRM MOVE
+          </button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/static/script.js"></script>
+  </body>
+</html>
