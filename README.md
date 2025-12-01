@@ -20,12 +20,12 @@ Dự án này là một hệ thống gom nhóm và loại bỏ ảnh trùng lặ
 ## 🚀 Tính năng nổi bật
 
 * **Robust Feature Extraction:** Sử dụng **ResNet50** (đã loại bỏ lớp FC) kết hợp với kỹ thuật **Test-Time Augmentation (TTA)** phong phú (xoay, lật, nhiễu, làm mờ...) bằng thư viện `Kornia` (trên GPU) và `PIL`. Điều này giúp vector đặc trưng không bị ảnh hưởng bởi ánh sáng, góc chụp hay nhiễu.
-* **High Performance Hashing (C++):** Các thuật toán băm (Hashing) được viết bằng C++ và bind qua Python bằng `pybind11` để tối ưu tốc độ:
+* **High Performance Hashing (C++):** Các thuật toán băm (Hashing) được viết bằng C++ và bind qua Python bằng `pybind11`:
     * **SimHash:** Tìm kiếm tương đồng cosine.
     * **MinHash:** Ước lượng độ tương đồng Jaccard.
     * **BloomFilter:** Kiểm tra thành viên tập hợp xác suất.
     * **HashTable:** Gom nhóm chính xác.
-* **Auto-Thresholding:** Tự động tìm ngưỡng cắt (threshold) tối ưu dựa trên phân tích "thung lũng" (Valley Detection) của biểu đồ khoảng cách Hamming.
+* **Auto-Thresholding:** Tự động tìm ngưỡng cắt (threshold) tối ưu dựa trên phân tích "thung lũng" (Valley Detection) của biểu đồ khoảng cách Hamming. (Lưu ý: Chỉ dùng cho HashTable và SimHash)
 * **Best Image Selection:** Trong mỗi nhóm ảnh trùng, hệ thống tự động chọn ra ảnh tốt nhất dựa trên độ sắc nét (Laplacian) và độ rực màu (Saturation).
 * **FAISS Integration:** Hỗ trợ thư viện FAISS của Facebook để tìm kiếm vector tốc độ cao.
 
@@ -105,6 +105,7 @@ import simhash_py as SimHash
 ht = SimHash.SimHash(64) # Cấu hình 64 bit
 best_threshold = analyze_and_plot_distances(ht, features)
 ```
+**Lưu ý:** Chỉ dùng cho HashTable và SimHash
 ### 3. Phân tích & Tìm ngưỡng (Threshold Analysis)
 #### Nhánh A: Sử dụng Hash (C++ Backend)
 Sử dụng các thuật toán SimHash, MinHash, BloomFilter, HashTable.
@@ -178,3 +179,4 @@ Dự án được xây dựng dựa trên việc nghiên cứu các tài liệu,
 * **NearDuplicateDetection** - *Github user sumonbis*: [GitHub Link](https://github.com/sumonbis/NearDuplicateDetection)
 
 ---
+
