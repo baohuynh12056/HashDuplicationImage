@@ -59,22 +59,43 @@ Hệ thống đã tích hợp sẵn file main.py mẫu. Bạn có thể chạy n
 python main.py
 ```
 Lưu ý: Chương trình sẽ tự động tạo thư mục img nếu chưa có. Hãy bỏ ảnh vào đó và chạy lại.
+## 🚀 Run with Docker
 
+Ứng dụng hỗ trợ chạy hoàn toàn bằng Docker, không cần cài thêm môi trường Python hay thư viện.
+
+### 🏗️ Build Docker Image
+
+Chạy lệnh sau trong thư mục chứa `Dockerfile`:
+
+```bash
+docker build -t hash-duplication-app .
+```
+### ▶️ Run Container
+Sau khi build xong, chạy container:
+```bash
+docker run -p 8000:8000 hash-duplication-app
+```
+Copy-paste vào trình duyệt:
+```bash
+http://localhost:8000
+```
 ## 📂 Cấu trúc dự án
 ```text
-├── Application/            # Python Package chứa logic xử lý
-│   ├── __init__.py
-│   ├── cluster.py          # Logic gom nhóm, xử lý Hash, chọn ảnh tốt nhất
-│   └── resnet.py           # Logic trích xuất đặc trưng (ResNet50 + Kornia)
-├── Hash Structure/         # Mã nguồn C++ (Core Hashing)
-│   ├── Header/             # .h files
-│   └── Source/             # .cpp files
-├── img/                    # Thư mục chứa ảnh đầu vào (bạn tự tạo)
-├── clusters/               # Thư mục chứa kết quả (tự động tạo)
-├── setup.py                # Script biên dịch C++ extension
-├── main.py                 # File chạy chính
-├── requirement.txt         # Danh sách thư viện cần thiết
-└── README.md               # Tài liệu hướng dẫn
+Project/
+├── Application/              # Python package chứa logic xử lý chính
+├── Hash Structure/           # Mã nguồn C++ (Core Hashing)
+│   ├── Header/               # File .h
+│   └── Source/               # File .cpp
+├── app/                      # Web
+├── .gitattributes            # Cấu hình thuộc tính Git
+├── .gitignore                # Danh sách file cần bỏ qua khi commit
+├── CMakeLists.txt            # File cấu hình CMake cho phần C++
+├── Dockerfile                # Build và chạy ứng dụng bằng Docker
+├── LICENSE                   # Giấy phép dự án
+├── main.py                   # File chạy chính của ứng dụng
+├── requirement.txt           # Danh sách thư viện Python cần cài đặt
+├── setup.py                  # Script build C++ extension
+└── README.md                 # Tài liệu hướng dẫn
 ```
 ## ⚡ Hướng dẫn sử dụng
 ### 1. Trích xuất đặc trưng (Feature Extraction)
@@ -175,6 +196,7 @@ Dự án được xây dựng dựa trên việc nghiên cứu các tài liệu,
     * Source: [SMHasher Repository](https://github.com/aappleby/smhasher)
 
 ---
+
 
 
 
