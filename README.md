@@ -172,9 +172,9 @@ Dự án được xây dựng dựa trên việc nghiên cứu các tài liệu,
 ### 💻 Mã nguồn mở & Thư viện (Open Source)
 
 * **MurmurHash3: A Non-Cryptographic Hash Function** - *Austin Appleby* (2008).
-    * Hệ thống sử dụng triển khai MurmurHash3 để tối ưu hóa tốc độ băm dữ liệu.
     * Source: [SMHasher Repository](https://github.com/aappleby/smhasher)
 
 ---
+
 
 
