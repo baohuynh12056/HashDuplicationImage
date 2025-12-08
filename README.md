@@ -153,30 +153,28 @@ Dự án được xây dựng dựa trên việc nghiên cứu các tài liệu,
 
 ### 📄 Bài báo khoa học (Scientific Papers)
 
-**Các nghiên cứu về Bloom Filter & Hashing:**
-* **Advanced Bloom Filter Based Algorithms for Efficient Approximate Data De-Duplication in Streams** - *Suman K. Bera, Sourav Dutta, Ankur Narang, Souvik Bhattacherjee* (IBM Research & Univ. of Maryland).
-* **Bloom Filters and Compact Hash Codes for Efficient and Distributed Image Retrieval** - *Andrea Salvi, Simone Ercoli, Marco Bertini, Alberto Del Bimbo* (MICC - University of Florence, IEEE 2016).
-* **Large-Scale Query-by-Image Video Retrieval Using Bloom Filters** - *André Araujo, Jason Chaves, Haricharan Lakshman, Roland Angst, Bernd Girod* (Stanford University).
-* **Compact Hash Codes and Data Structures for Efficient Mobile Visual Search** - *Simone Ercoli, Marco Bertini, Alberto Del Bimbo*.
+**Cơ sở lý thuyết & Thuật toán nền tảng**
+* **Space/time trade-offs in hash coding with allowable errors** - *Burton H. Bloom* (Communications of the ACM, 1970).
+* **On the resemblance and containment of documents** - *Andrei Z. Broder* (IEEE, 1997).
+* **Similarity Estimation Techniques from Rounding Algorithms** - *Moses S. Charikar* (Princeton University, 2002).
+* **The Automatic Creation of Literature Abstracts** - *H. P. Luhn* (IBM Journal of Research and Development, 1958).
 
-**Các nghiên cứu về SimHash & LSH:**
-* **Simhash for large scale image retrieval** - *Qin-Zhen Guo, Zhi Zeng, Shuwu Zhang, Xiao Feng, Hu Guan* (Institute of Automation, CAS).
-* **Sketches image analysis: Web image search engine using LSH index and DNN InceptionV3** - *Alessio Schiavo, Filippo Minutella, Mattia Daole, Marsha Gómez Gómez* (University of Pisa).
-* **Similarity Estimation Techniques from Rounding Algorithms** - *Moses S. Charikar* (Princeton University).
-* **Online Locality Sensitive Hashing** - *Lalla et al.*
+**Trích xuất đặc trưng**
+* **Deep Residual Learning for Image Recognition** - *Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun* (CVPR 2016).
 
-### 🎓 Luận văn (Theses - Vietnam National University)
-* **Nghiên cứu và phát triển hệ thống tìm kiếm ảnh** - *Cấn Mạnh Cường (K20-HTTT)* - [VNU UET Repository](http://data.uet.vnu.edu.vn/jspui/bitstream/123456789/861/1/K20HTTT_CanManhCuong_Luanvan.pdf)
-* **Phát hiện ảnh trùng lặp trong cơ sở dữ liệu lớn** - *Phạm Thị Hồng (K54)* - [VNU UET Repository](https://uet.vnu.edu.vn/~thuyhq/Student_Thesis/K54_Pham_Thi_Hong_Thesis.pdf)
+**Hashing**
+* **Detecting near-duplicates for web crawling** - *Gurmeet Singh Manku, Arvind Jain, Anish Das Sarma* (Google, WWW 2007).
+* **Simhash for large scale image retrieval** - *Qin-Zhen Guo et al.* (Applied Mechanics and Materials, 2014).
+* **Bloom Filters and Compact Hash Codes for Efficient and Distributed Image Retrieval** - *Andrea Salvi, Simone Ercoli, Marco Bertini, Alberto Del Bimbo* (IEEE ISM, 2016).
+* **Large-Scale Query-by-Image Video Retrieval Using Bloom Filters** - *André Araujo et al.* (Stanford University, 2016).
+* **Advanced Bloom Filter Based Algorithms for Efficient Approximate Data De-Duplication in Streams** - *Suman K. Bera et al.* (arXiv, 2012).
 
-### 🛠️ Blog & Hướng dẫn kỹ thuật (Technical Blogs)
-* **Image Retrieval với thư viện FAISS** - *Viblo*: [Link bài viết](https://viblo.asia/p/image-retrieval-voi-thu-vien-faiss-LzD5ddJo5jY)
-* **Cách xóa các bản sao trong tập dữ liệu lớn** - *Viblo*: [Link bài viết](https://viblo.asia/p/cach-xoa-cac-ban-sao-trong-tap-du-lieu-lon-aWj53vN8l6m)
-* **Giới thiệu mạng ResNet** - *Viblo*: [Link bài viết](https://viblo.asia/p/gioi-thieu-mang-resnet-vyDZOa7R5wj)
-* **Image Hashing with OpenCV and Python** - *PyImageSearch*: [Link bài viết](https://pyimagesearch.com/2017/11/27/image-hashing-opencv-python/)
+### 💻 Mã nguồn mở & Thư viện (Open Source)
 
-### 💻 Mã nguồn tham khảo (Open Source)
-* **NearDuplicateDetection** - *Github user sumonbis*: [GitHub Link](https://github.com/sumonbis/NearDuplicateDetection)
+* **MurmurHash3: A Non-Cryptographic Hash Function** - *Austin Appleby* (2008).
+    * Hệ thống sử dụng triển khai MurmurHash3 để tối ưu hóa tốc độ băm dữ liệu.
+    * Source: [SMHasher Repository](https://github.com/aappleby/smhasher)
 
 ---
+
 
