@@ -39,7 +39,7 @@ Dự án này là một hệ thống gom nhóm và loại bỏ ảnh trùng lặ
 
 ### 1. Clone repository
 ```bash
-git clone https://github.com/AnNguyen241106/HashDuplicationImage
+git clone https://github.com/baohuynh12056/HashDuplicationImage
 cd HashDuplicationImage
 ```
 ### 2. Cài đặt thư viện Python
@@ -196,6 +196,7 @@ Dự án được xây dựng dựa trên việc nghiên cứu các tài liệu,
     * Source: [SMHasher Repository](https://github.com/aappleby/smhasher)
 
 ---
+
 
 
 
