@@ -59,6 +59,7 @@ Hệ thống đã tích hợp sẵn file main.py mẫu. Bạn có thể chạy n
 python main.py
 ```
 Lưu ý: Chương trình sẽ tự động tạo thư mục img nếu chưa có. Hãy bỏ ảnh vào đó và chạy lại.
+Datasets mẫu: https://drive.google.com/drive/folders/1ZninkrJztjI2grmj6bY9__xPBA9UV3wP?usp=sharing
 ## 🚀 Run with Docker
 
 Ứng dụng hỗ trợ chạy hoàn toàn bằng Docker, không cần cài thêm môi trường Python hay thư viện.
@@ -196,6 +197,7 @@ Dự án được xây dựng dựa trên việc nghiên cứu các tài liệu,
     * Source: [SMHasher Repository](https://github.com/aappleby/smhasher)
 
 ---
+
 
 
 
